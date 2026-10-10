@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3864">
+<title>Présence – Génie Civil</title>
+<style>
+  :root { --bleu:#1f3864; --fond:#f3f4f6; --carte:#fff; --texte:#111827; --gris:#6b7280; --trait:#d1d5db;
+          --vert:#15803d; --orange:#b45309; --rouge:#b91c1c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--fond); color:var(--texte); font-size:16px; }
+  header { background:var(--bleu); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  header button { background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; padding:6px 10px; border-radius:6px; font-size:14px; }
+  main { padding:16px; max-width:560px; margin:0 auto; }
+  .bloc { background:var(--carte); border:1px solid var(--trait); border-radius:10px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  label { display:block; font-size:13px; color:var(--gris); margin:10px 0 4px; }
+  input, select { width:100%; padding:10px; font-size:16px; border:1px solid var(--trait); border-radius:8px; background:#fff; color:var(--texte); }
+  .ligne { display:flex; gap:10px; } .ligne > div { flex:1; min-width:0; }
+  button.principal { width:100%; padding:13px; font-size:16px; font-weight:600; background:var(--bleu); color:#fff; border:0; border-radius:8px; margin-top:14px; }
+  button.second { width:100%; padding:11px; font-size:15px; background:#fff; color:var(--bleu); border:1px solid var(--bleu); border-radius:8px; margin-top:10px; }
+  button:disabled { opacity:.5; }
+  .aide { font-size:13px; color:var(--gris); margin:8px 0 0; line-height:1.4; }
+  .erreur { color:var(--rouge); font-size:14px; margin-top:10px; white-space:pre-wrap; }
+  .ok { color:var(--vert); font-size:14px; margin-top:10px; }
+  .seance { border-top:1px solid var(--trait); padding:10px 0; display:flex; align-items:center; gap:10px; }
+  .seance:first-of-type { border-top:0; }
+  .seance .infos { flex:1; min-width:0; } .seance .titre { font-weight:600; font-size:15px; }
+  .seance .detail { font-size:13px; color:var(--gris); }
+  .etat { font-size:12px; padding:3px 8px; border-radius:99px; white-space:nowrap; }
+  .etat.attente { background:#fef3c7; color:#92400e; } .etat.envoye { background:#dcfce7; color:#166534; }
+  .seance button { padding:7px 10px; font-size:13px; border:1px solid var(--trait); background:#fff; border-radius:6px; }
+  #video-zone { position:relative; background:#000; border-radius:10px; overflow:hidden; aspect-ratio:1/1; }
+  #video { width:100%; height:100%; object-fit:cover; display:block; }
+  #viseur { position:absolute; inset:18%; border:3px solid rgba(255,255,255,.85); border-radius:12px; pointer-events:none; }
+  #retour { margin-top:10px; padding:14px; border-radius:10px; font-weight:600; text-align:center; min-height:72px; display:flex; flex-direction:column; justify-content:center; background:#e5e7eb; color:#374151; }
+  #retour small { font-weight:400; font-size:13px; display:block; margin-top:2px; }
+  #retour.vert { background:var(--vert); color:#fff; } #retour.orange { background:var(--orange); color:#fff; } #retour.rouge { background:var(--rouge); color:#fff; } #retour.bleu { background:#1d4ed8; color:#fff; }
+  #compteur { font-size:26px; font-weight:700; text-align:center; margin:10px 0 2px; }
+  #compteur small { font-size:14px; font-weight:400; color:var(--gris); }
+  #resultats div { padding:9px 4px; border-top:1px solid var(--trait); font-size:15px; display:flex; justify-content:space-between; gap:8px; }
+  #resultats button { border:1px solid var(--trait); background:#fff; border-radius:6px; padding:4px 10px; font-size:13px; }
+  .cache { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titre">Présence – Génie Civil</h1>
+  <button id="btn-reglages" class="cache">Réglages</button>
+</header>
+<main>
+
+<!-- Réglages -->
+<section id="ecran-reglages" class="cache">
+  <div class="bloc">
+    <h2>Réglages de ce téléphone</h2>
+    <label for="cfg-compte">Compte GitHub du département</label>
+    <input id="cfg-compte" autocapitalize="none" autocomplete="off" placeholder="ex. gc-iutfv">
+    <label for="cfg-depot">Dépôt des données (privé)</label>
+    <input id="cfg-depot" autocapitalize="none" autocomplete="off" value="presence-donnees">
+    <label for="cfg-jeton">Jeton d'accès</label>
+    <input id="cfg-jeton" type="password" autocapitalize="none" autocomplete="off" placeholder="github_pat_…">
+    <label for="cfg-scanneur">Votre nom (délégué ou adjoint)</label>
+    <input id="cfg-scanneur" autocomplete="off">
+    <button class="principal" id="btn-enregistrer">Enregistrer et charger les classes</button>
+    <button class="second cache" id="btn-annuler-reglages">Retour</button>
+    <div id="msg-reglages"></div>
+    <p class="aide">Le jeton est remis par le département. Il reste enregistré sur ce téléphone uniquement. En cas de perte du téléphone, prévenez le département pour qu'il le révoque.</p>
+  </div>
+</section>
+
+<!-- Accueil -->
+<section id="ecran-accueil" class="cache">
+  <div class="bloc">
+    <h2>Nouvelle séance</h2>
+    <label for="s-classe">Classe</label>
+    <select id="s-classe"></select>
+    <div class="ligne">
+      <div><label for="s-date">Date</label><input id="s-date" type="date"></div>
+      <div><label for="s-creneau">Créneau</label>
+        <select id="s-creneau">
+          <option value="1">1 · 07h30</option>
+          <option value="2">2 · 09h40</option>
+          <option value="3">3 · 12h30</option>
+          <option value="4">4 · 14h40</option>
+          <option value="5">5 · 16h50</option>
+        </select></div>
+    </div>
+    <label for="s-ue">UE / Matière</label>
+    <input id="s-ue" autocomplete="off" placeholder="ex. RDM 1">
+    <label for="s-salle">Salle</label>
+    <input id="s-salle" autocomplete="off" placeholder="ex. Atelier GC">
+    <button class="principal" id="btn-demarrer">Démarrer le scan</button>
+    <div id="msg-accueil"></div>
+  </div>
+  <div class="bloc">
+    <h2>Séances enregistrées sur ce téléphone</h2>
+    <div id="liste-seances"></div>
+    <button class="second" id="btn-tout-envoyer">Envoyer les séances en attente</button>
+    <button class="second" id="btn-maj-listes">Mettre à jour les listes d'étudiants</button>
+    <div id="msg-envoi"></div>
+  </div>
+</section>
+
+<!-- Scan -->
+<section id="ecran-scan" class="cache">
+  <div id="video-zone"><video id="video" playsinline muted></video><div id="viseur"></div></div>
+  <div id="retour">Présentez la carte de l'enseignant, puis celles des étudiants, devant la caméra</div>
+  <div id="compteur">0 <small>présent(s)</small></div>
+  <p id="ens-etat" class="aide" style="text-align:center;margin:0 0 10px"></p>
+  <div class="bloc">
+    <label for="recherche">Carte oubliée ou illisible : chercher par nom</label>
+    <input id="recherche" autocomplete="off" placeholder="Tapez au moins 3 lettres">
+    <div id="resultats"></div>
+  </div>
+  <button class="principal" id="btn-terminer">Terminer et envoyer</button>
+  <div id="msg-scan"></div>
+</section>
+
+</main>
+<canvas id="toile" class="cache"></canvas>
+<script src="jsQR.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const CRENEAUX = { 1: "07h30–09h30", 2: "09h40–11h40", 3: "12h30–14h30", 4: "14h40–16h40", 5: "16h50–18h50" };
+
+// ---------- Stockage local ----------
+const lire = (cle, defaut) => { try { const v = localStorage.getItem(cle); return v ? JSON.parse(v) : defaut; } catch (e) { return defaut; } };
+const ecrire = (cle, v) => { try { localStorage.setItem(cle, JSON.stringify(v)); return true; } catch (e) { alert("Impossible d'enregistrer sur ce téléphone : " + e.message); return false; } };
+let cfg = lire("presence.cfg", null);
+let enseignants = lire("presence.enseignants", []); // [{id, nom}]
+let classes = lire("presence.classes", {});   // { "DUT-GC1": [{id, matricule, nom}] }
+let seances = lire("presence.seances", []);   // [{cle, classe, date, creneau, ue, salle, scanneur, scans:[{id,heure,mode}], envoye}]
+let seance = null;                            // séance en cours de scan
+
+// ---------- GitHub ----------
+async function gh(chemin, options = {}) {
+  const url = "https://api.github.com/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(cfg.depot) + "/contents/" +
+    chemin.split("/").map(encodeURIComponent).join("/");
+  const rep = await fetch(url, {
+    method: options.method || "GET",
+    cache: "no-store",
+    headers: {
+      Authorization: "Bearer " + cfg.jeton,
+      Accept: options.brut ? "application/vnd.github.raw+json" : "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  return rep;
+}
+function expliquer(rep) {
+  if (rep.status === 401) return "Jeton refusé (401) : il est erroné, expiré ou révoqué.";
+  if (rep.status === 403) return "Accès refusé (403) : le jeton n'a pas le droit « Contents : Read and write » sur ce dépôt.";
+  if (rep.status === 404) return "Introuvable (404) : vérifiez le nom du compte et du dépôt, et que le jeton donne accès à ce dépôt.";
+  return "Erreur GitHub " + rep.status + ".";
+}
+function analyserCsv(texte) {
+  const lignes = []; let champ = "", ligne = [], guillemets = false;
+  texte = texte.replace(/^﻿/, "");
+  for (let i = 0; i < texte.length; i++) {
+    const c = texte[i];
+    if (guillemets) {
+      if (c === '"' && texte[i + 1] === '"') { champ += '"'; i++; }
+      else if (c === '"') guillemets = false;
+      else champ += c;
+    } else if (c === '"') guillemets = true;
+    else if (c === ",") { ligne.push(champ); champ = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && texte[i + 1] === "\n") i++;
+      ligne.push(champ); champ = "";
+      if (ligne.some((x) => x !== "")) lignes.push(ligne);
+      ligne = [];
+    } else champ += c;
+  }
+  ligne.push(champ); if (ligne.some((x) => x !== "")) lignes.push(ligne);
+  const entetes = lignes.shift().map((h) => h.trim());
+  return lignes.map((l) => Object.fromEntries(entetes.map((h, i) => [h, (l[i] || "").trim()])));
+}
+const csvChamp = (v) => { v = String(v == null ? "" : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+
+async function chargerClasses() {
+  const rep = await gh("classes");
+  if (!rep.ok) throw new Error(expliquer(rep));
+  const dossiers = (await rep.json()).filter((e) => e.type === "dir").map((e) => e.name);
+  if (!dossiers.length) throw new Error("Aucune classe trouvée dans le dossier « classes » du dépôt.");
+  const resultat = {};
+  for (const nom of dossiers) {
+    const r = await gh("classes/" + nom + "/etudiants.csv", { brut: true });
+    if (!r.ok) continue;
+    resultat[nom] = analyserCsv(await r.text())
+      .filter((e) => e.id)
+      .map((e) => ({ id: e.id.toUpperCase(), matricule: e.matricule || "", nom: e.noms_prenoms || "" }));
+  }
+  if (!Object.keys(resultat).length) throw new Error("Aucun fichier etudiants.csv lisible dans le dépôt.");
+  classes = resultat;
+  ecrire("presence.classes", classes);
+  const re = await gh("enseignants/enseignants.csv", { brut: true });
+  if (re.ok) {
+    enseignants = analyserCsv(await re.text()).filter((e) => e.id).map((e) => ({ id: e.id.toUpperCase(), nom: e.noms_prenoms || "" }));
+    ecrire("presence.enseignants", enseignants);
+  }
+}
+
+// ---------- Navigation ----------
+function afficher(ecran) {
+  for (const e of ["reglages", "accueil", "scan"]) $("ecran-" + e).classList.toggle("cache", e !== ecran);
+  $("btn-reglages").classList.toggle("cache", ecran !== "accueil");
+  window.scrollTo(0, 0);
+}
+const message = (id, texte, type) => { $(id).className = type || ""; $(id).textContent = texte || ""; };
+
+// ---------- Réglages ----------
+function ouvrirReglages() {
+  $("cfg-compte").value = cfg ? cfg.compte : "";
+  $("cfg-depot").value = cfg ? cfg.depot : "presence-donnees";
+  $("cfg-jeton").value = cfg ? cfg.jeton : "";
+  $("cfg-scanneur").value = cfg ? cfg.scanneur : "";
+  $("btn-annuler-reglages").classList.toggle("cache", !cfg || !Object.keys(classes).length);
+  message("msg-reglages", "");
+  afficher("reglages");
+}
+$("btn-reglages").onclick = ouvrirReglages;
+$("btn-annuler-reglages").onclick = ouvrirAccueil;
+$("btn-enregistrer").onclick = async () => {
+  const nouveau = {
+    compte: $("cfg-compte").value.trim(), depot: $("cfg-depot").value.trim(),
+    jeton: $("cfg-jeton").value.trim(), scanneur: $("cfg-scanneur").value.trim(),
+  };
+  if (!nouveau.compte || !nouveau.depot || !nouveau.jeton || !nouveau.scanneur) return message("msg-reglages", "Tous les champs sont obligatoires.", "erreur");
+  const ancien = cfg; cfg = nouveau;
+  $("btn-enregistrer").disabled = true; message("msg-reglages", "Connexion à GitHub…");
+  try {
+    await chargerClasses();
+    ecrire("presence.cfg", cfg);
+    ouvrirAccueil();
+  } catch (e) {
+    cfg = ancien;
+    message("msg-reglages", e.message === "Failed to fetch" ? "Pas de connexion Internet." : e.message, "erreur");
+  }
+  $("btn-enregistrer").disabled = false;
+};
+
+// ---------- Accueil ----------
+const deuxChiffres = (n) => String(n).padStart(2, "0");
+const dateLocale = (d) => d.getFullYear() + "-" + deuxChiffres(d.getMonth() + 1) + "-" + deuxChiffres(d.getDate());
+function creneauActuel() {
+  const d = new Date(), m = d.getHours() * 60 + d.getMinutes();
+  if (m < 9 * 60 + 35) return 1; if (m < 11 * 60 + 45) return 2; if (m < 14 * 60 + 35) return 3; if (m < 16 * 60 + 45) return 4; return 5;
+}
+function ouvrirAccueil() {
+  const sel = $("s-classe"), avant = sel.value || lire("presence.derniereClasse", "");
+  sel.innerHTML = "";
+  for (const nom of Object.keys(classes).sort()) {
+    const o = document.createElement("option"); o.value = nom; o.textContent = nom + " (" + classes[nom].length + " étudiants)"; sel.appendChild(o);
+  }
+  if (classes[avant]) sel.value = avant;
+  $("s-date").value = dateLocale(new Date());
+  $("s-creneau").value = creneauActuel();
+  message("msg-accueil", ""); message("msg-envoi", "");
+  dessinerSeances();
+  afficher("accueil");
+}
+function dessinerSeances() {
+  const zone = $("liste-seances"); zone.innerHTML = "";
+  if (!seances.length) { zone.innerHTML = '<p class="aide">Aucune séance pour le moment.</p>'; }
+  for (const s of seances.slice().reverse()) {
+    const div = document.createElement("div"); div.className = "seance";
+    const infos = document.createElement("div"); infos.className = "infos";
+    const t = document.createElement("div"); t.className = "titre"; t.textContent = s.classe + " · " + s.date + " · créneau " + s.creneau;
+    const d = document.createElement("div"); d.className = "detail"; d.textContent = s.scans.length + " présent(s)" + (s.ue ? " · " + s.ue : "") + (s.salle ? " · " + s.salle : "");
+    infos.append(t, d);
+    const etat = document.createElement("span"); etat.className = "etat " + (s.envoye ? "envoye" : "attente"); etat.textContent = s.envoye ? "Envoyée" : "En attente";
+    const b = document.createElement("button"); b.textContent = "Reprendre"; b.onclick = () => demarrerScan(s);
+    div.append(infos, etat, b); zone.appendChild(div);
+  }
+  $("btn-tout-envoyer").disabled = !seances.some((s) => !s.envoye);
+}
+const slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "x";
+$("btn-demarrer").onclick = () => {
+  const classe = $("s-classe").value, date = $("s-date").value, creneau = Number($("s-creneau").value);
+  if (!classe || !date) return message("msg-accueil", "Choisissez la classe et la date.", "erreur");
+  ecrire("presence.derniereClasse", classe);
+  let s = seances.find((x) => x.classe === classe && x.date === date && x.creneau === creneau);
+  if (!s) {
+    const h = new Date();
+    s = { cle: "C" + creneau + "_" + slug(cfg.scanneur) + "_" + deuxChiffres(h.getHours()) + deuxChiffres(h.getMinutes()) + deuxChiffres(h.getSeconds()),
+          classe, date, creneau, ue: $("s-ue").value.trim(), salle: $("s-salle").value.trim(), scanneur: cfg.scanneur, scans: [], envoye: false };
+    seances.push(s);
+    if (seances.length > 60) seances = seances.filter((x, i) => !x.envoye || i >= seances.length - 60);
+    ecrire("presence.seances", seances);
+  } else {
+    if ($("s-ue").value.trim()) s.ue = $("s-ue").value.trim();
+    if ($("s-salle").value.trim()) s.salle = $("s-salle").value.trim();
+  }
+  demarrerScan(s);
+};
+$("btn-maj-listes").onclick = async () => {
+  message("msg-envoi", "Mise à jour des listes…");
+  try { await chargerClasses(); ouvrirAccueil(); message("msg-envoi", "Listes mises à jour.", "ok"); }
+  catch (e) { message("msg-envoi", e.message === "Failed to fetch" ? "Pas de connexion Internet." : e.message, "erreur"); }
+};
+
+// ---------- Envoi ----------
+function contenuCsv(s) {
+  const lignes = ["date,creneau,classe,id,heure,mode,ue,salle,scanneur"];
+  for (const x of s.scans) lignes.push([s.date, s.creneau, s.classe, x.id, x.heure, x.mode, s.ue, s.salle, s.scanneur].map(csvChamp).join(","));
+  for (const x of s.enseignants || []) lignes.push([s.date, s.creneau, s.classe, x.id, x.heure, "enseignant", s.ue, s.salle, s.scanneur].map(csvChamp).join(","));
+  return lignes.join("\n") + "\n";
+}
+function base64Utf8(texte) {
+  const octets = new TextEncoder().encode(texte); let bin = "";
+  for (let i = 0; i < octets.length; i += 0x8000) bin += String.fromCharCode.apply(null, octets.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+async function envoyer(s) {
+  const chemin = "scans/" + s.classe + "/" + s.date + "/" + s.cle + ".csv";
+  let sha;
+  const existant = await gh(chemin);
+  if (existant.ok) sha = (await existant.json()).sha;
+  else if (existant.status !== 404) throw new Error(expliquer(existant));
+  const rep = await gh(chemin, { method: "PUT", body: {
+    message: "Présence " + s.classe + " " + s.date + " créneau " + s.creneau + " (" + s.scans.length + " présents) – " + s.scanneur,
+    content: base64Utf8(contenuCsv(s)), sha,
+  } });
+  if (!rep.ok) throw new Error(expliquer(rep));
+  s.envoye = true; ecrire("presence.seances", seances);
+}
+async function envoyerEnAttente(idMessage) {
+  const attente = seances.filter((s) => !s.envoye);
+  if (!attente.length) return true;
+  message(idMessage, "Envoi vers GitHub…");
+  let faits = 0;
+  try {
+    for (const s of attente) { await envoyer(s); faits++; }
+    message(idMessage, faits + " séance(s) envoyée(s).", "ok");
+    return true;
+  } catch (e) {
+    message(idMessage, (e.message === "Failed to fetch" ? "Pas de connexion Internet." : e.message) +
+      "\nLes scans restent enregistrés sur ce téléphone. Renvoyez-les plus tard depuis l'accueil.", "erreur");
+    return false;
+  }
+}
+$("btn-tout-envoyer").onclick = async () => { await envoyerEnAttente("msg-envoi"); dessinerSeances(); };
+
+// ---------- Scan ----------
+let flux = null, boucle = null, dernierCode = "", dernierInstant = 0, audio = null, verrou = null;
+function bip(type) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    const bon = type === "vert" || type === "bleu";
+    o.frequency.value = bon ? 1040 : type === "orange" ? 520 : 220;
+    g.gain.value = 0.25; o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + (bon ? 0.12 : 0.35));
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(type === "vert" || type === "bleu" ? 60 : [120, 60, 120]);
+}
+function retour(type, ligne1, ligne2) {
+  const r = $("retour"); r.className = type; r.textContent = ligne1;
+  if (ligne2) { const s = document.createElement("small"); s.textContent = ligne2; r.appendChild(s); }
+  bip(type);
+}
+function majCompteur() {
+  $("compteur").innerHTML = seance.scans.length + " <small>présent(s) sur " + (classes[seance.classe] || []).length + "</small>";
+  const noms = (seance.enseignants || []).map((x) => (enseignants.find((e) => e.id === x.id) || { nom: x.id }).nom);
+  $("ens-etat").textContent = noms.length ? "Enseignant émargé : " + noms.join(", ") : "Enseignant : pas encore émargé (scannez sa carte)";
+}
+function heureActuelle() {
+  const h = new Date();
+  return deuxChiffres(h.getHours()) + ":" + deuxChiffres(h.getMinutes()) + ":" + deuxChiffres(h.getSeconds());
+}
+function pointer(id, mode) {
+  id = String(id).trim().toUpperCase();
+  // Carte d'un enseignant : émargement de la séance
+  const ens = enseignants.find((e) => e.id === id);
+  if (ens) {
+    seance.enseignants = seance.enseignants || [];
+    if (seance.enseignants.some((x) => x.id === ens.id)) return retour("orange", ens.nom, "Enseignant · déjà émargé");
+    seance.enseignants.push({ id: ens.id, heure: heureActuelle() });
+    seance.envoye = false; ecrire("presence.seances", seances); majCompteur();
+    return retour("bleu", ens.nom, "Enseignant · émargement enregistré");
+  }
+  const liste = classes[seance.classe] || [];
+  const etu = liste.find((e) => e.id === id || (e.matricule && e.matricule.toUpperCase() === id));
+  if (!etu) {
+    const autre = Object.keys(classes).find((c) => classes[c].some((e) => e.id === id));
+    if (autre) return retour("rouge", "Carte d'une autre classe", autre + " · " + id);
+    // Carte de la classe pas encore saisie dans la liste (inscription tardive) : la présence est conservée
+    const prefixe = liste.length ? liste[0].id.replace(/\d+$/, "") : "";
+    if (!prefixe || !id.startsWith(prefixe) || !/^\d{1,5}$/.test(id.slice(prefixe.length))) return retour("rouge", "Carte inconnue", id.slice(0, 40));
+    if (seance.scans.some((x) => x.id === id)) return retour("orange", "Carte non encore enregistrée", id + " · déjà pointée");
+    seance.scans.push({ id, heure: heureActuelle(), mode: "non-inscrit" });
+    seance.envoye = false; ecrire("presence.seances", seances); majCompteur();
+    return retour("orange", "Carte non encore enregistrée", id + " · présence notée, à signaler au département");
+  }
+  if (seance.scans.some((x) => x.id === etu.id)) return retour("orange", etu.nom, "Déjà pointé(e)");
+  seance.scans.push({ id: etu.id, heure: heureActuelle(), mode });
+  seance.envoye = false;
+  ecrire("presence.seances", seances);
+  majCompteur();
+  retour("vert", etu.nom, etu.id + " · présent(e)");
+}
+function analyser() {
+  const v = $("video");
+  if (v.readyState >= 2 && v.videoWidth) {
+    const toile = $("toile"), echelle = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+    toile.width = Math.round(v.videoWidth * echelle); toile.height = Math.round(v.videoHeight * echelle);
+    const ctx = toile.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(v, 0, 0, toile.width, toile.height);
+    const image = ctx.getImageData(0, 0, toile.width, toile.height);
+    const code = jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
+    if (code && code.data) {
+      const maintenant = Date.now();
+      if (code.data !== dernierCode || maintenant - dernierInstant > 4000) {
+        dernierCode = code.data; pointer(code.data, "scan");
+      }
+      dernierInstant = maintenant;
+    }
+  }
+  boucle = setTimeout(analyser, 120);
+}
+async function demarrerScan(s) {
+  seance = s; dernierCode = "";
+  $("titre").textContent = s.classe + " · créneau " + s.creneau;
+  $("retour").className = ""; $("retour").textContent = "Présentez une carte devant la caméra";
+  $("recherche").value = ""; $("resultats").innerHTML = ""; message("msg-scan", "");
+  majCompteur(); afficher("scan");
+  try {
+    flux = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }, audio: false });
+    $("video").srcObject = flux; await $("video").play();
+    try { verrou = await navigator.wakeLock.request("screen"); } catch (e) {}
+    analyser();
+  } catch (e) {
+    message("msg-scan", "Caméra indisponible : autorisez l'accès à la caméra pour cette page, ou pointez par le nom.", "erreur");
+  }
+}
+function arreterCamera() {
+  clearTimeout(boucle); boucle = null;
+  if (flux) { flux.getTracks().forEach((t) => t.stop()); flux = null; }
+  if (verrou) { try { verrou.release(); } catch (e) {} verrou = null; }
+}
+$("recherche").oninput = () => {
+  const q = $("recherche").value.trim().toUpperCase(), zone = $("resultats"); zone.innerHTML = "";
+  if (q.length < 3) return;
+  const sansAccent = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+  for (const e of (classes[seance.classe] || []).filter((e) => sansAccent(e.nom).includes(sansAccent(q)) || e.id.includes(q)).slice(0, 8)) {
+    const div = document.createElement("div"), nom = document.createElement("span"), b = document.createElement("button");
+    nom.textContent = e.nom; b.textContent = "Pointer";
+    b.onclick = () => { pointer(e.id, "manuel"); $("recherche").value = ""; zone.innerHTML = ""; };
+    div.append(nom, b); zone.appendChild(div);
+  }
+};
+$("btn-terminer").onclick = async () => {
+  arreterCamera();
+  $("btn-terminer").disabled = true;
+  await envoyerEnAttente("msg-envoi");
+  $("btn-terminer").disabled = false;
+  const msg = $("msg-envoi").textContent, type = $("msg-envoi").className;
+  $("titre").textContent = "Présence – Génie Civil";
+  ouvrirAccueil(); message("msg-envoi", msg, type);
+};
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { if (boucle) { clearTimeout(boucle); boucle = null; } }
+  else if (flux && !boucle && !$("ecran-scan").classList.contains("cache")) analyser();
+});
+window.addEventListener("online", () => { if ($("ecran-accueil").classList.contains("cache")) return; envoyerEnAttente("msg-envoi").then(dessinerSeances); });
+
+// ---------- Démarrage ----------
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if (cfg && Object.keys(classes).length) ouvrirAccueil(); else ouvrirReglages();
+</script>
+</body>
+</html>
