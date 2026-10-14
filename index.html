@@ -258,7 +258,7 @@ function ouvrirAccueil() {
     const o = document.createElement("option"); o.value = nom; o.textContent = nom + " (" + classes[nom].length + " étudiants)"; sel.appendChild(o);
   }
   if (classes[avant]) sel.value = avant;
-  $("s-date").value = dateLocale(new Date());
+  $("s-date").value = dateLocale(new Date()); derniereOuverture = $("s-date").value;
   $("s-creneau").value = creneauActuel();
   message("msg-accueil", ""); message("msg-envoi", "");
   dessinerSeances();
@@ -274,7 +274,12 @@ function dessinerSeances() {
     const d = document.createElement("div"); d.className = "detail"; d.textContent = s.scans.length + " présent(s)" + (s.ue ? " · " + s.ue : "") + (s.salle ? " · " + s.salle : "");
     infos.append(t, d);
     const etat = document.createElement("span"); etat.className = "etat " + (s.envoye ? "envoye" : "attente"); etat.textContent = s.envoye ? "Envoyée" : "En attente";
-    const b = document.createElement("button"); b.textContent = "Reprendre"; b.onclick = () => demarrerScan(s);
+    const b = document.createElement("button"); b.textContent = "Reprendre";
+    b.onclick = () => {
+      if (s.date !== dateLocale(new Date()) && !confirm("Cette séance date du " + s.date.split("-").reverse().join("/") +
+        ". Les cartes scannées seront enregistrées à cette date, pas aujourd'hui. Continuer ?")) return;
+      demarrerScan(s);
+    };
     div.append(infos, etat, b); zone.appendChild(div);
   }
   $("btn-tout-envoyer").disabled = !seances.some((s) => !s.envoye);
@@ -283,6 +288,10 @@ const slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z
 $("btn-demarrer").onclick = () => {
   const classe = $("s-classe").value, date = $("s-date").value, creneau = Number($("s-creneau").value);
   if (!classe || !date) return message("msg-accueil", "Choisissez la classe et la date.", "erreur");
+  if (date !== dateLocale(new Date()) && !confirm("La date choisie (" + date.split("-").reverse().join("/") +
+    ") n'est pas celle d'aujourd'hui (" + dateLocale(new Date()).split("-").reverse().join("/") + "). Continuer avec cette date ?")) {
+    $("s-date").value = dateLocale(new Date()); return;
+  }
   ecrire("presence.derniereClasse", classe);
   let s = seances.find((x) => x.classe === classe && x.date === date && x.creneau === creneau);
   if (!s) {
@@ -463,7 +472,19 @@ $("btn-terminer").onclick = async () => {
   $("titre").textContent = "Présence – Génie Civil";
   ouvrirAccueil(); message("msg-envoi", msg, type);
 };
+// Date et créneau remis à jour quand la page revient au premier plan (page restée ouverte plusieurs jours)
+var derniereOuverture = dateLocale(new Date());
+function rafraichirDate() {
+  const auj = dateLocale(new Date());
+  if (auj !== derniereOuverture && !$("ecran-accueil").classList.contains("cache")) {
+    $("s-date").value = auj; $("s-creneau").value = creneauActuel();
+  }
+  derniereOuverture = auj;
+}
+window.addEventListener("pageshow", rafraichirDate);
+window.addEventListener("focus", rafraichirDate);
 document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) rafraichirDate();
   if (document.hidden) { if (boucle) { clearTimeout(boucle); boucle = null; } }
   else if (flux && !boucle && !$("ecran-scan").classList.contains("cache")) analyser();
 });
