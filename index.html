@@ -88,10 +88,20 @@
           <option value="5">5 · 16h50</option>
         </select></div>
     </div>
+    <div class="ligne">
+      <div><label for="s-nature">Nature</label>
+        <select id="s-nature">
+          <option value="CM">CM · classe entière</option>
+          <option value="TD">TD · par groupe</option>
+          <option value="TP">TP · par groupe</option>
+        </select></div>
+      <div id="bloc-groupe" class="cache"><label for="s-groupe">Groupe</label><select id="s-groupe"></select></div>
+    </div>
     <label for="s-ue">UE / Matière</label>
     <input id="s-ue" autocomplete="off" placeholder="ex. RDM 1">
-    <label for="s-salle">Salle</label>
-    <input id="s-salle" autocomplete="off" placeholder="ex. Atelier GC">
+    <label for="s-salle-choix">Salle</label>
+    <select id="s-salle-choix"></select>
+    <input id="s-salle" class="cache" autocomplete="off" placeholder="Nom de la salle" style="margin-top:8px">
     <button class="principal" id="btn-demarrer">Démarrer le scan</button>
     <div id="msg-accueil"></div>
   </div>
@@ -132,7 +142,8 @@ const lire = (cle, defaut) => { try { const v = localStorage.getItem(cle); retur
 const ecrire = (cle, v) => { try { localStorage.setItem(cle, JSON.stringify(v)); return true; } catch (e) { alert("Impossible d'enregistrer sur ce téléphone : " + e.message); return false; } };
 let cfg = lire("presence.cfg", null);
 let enseignants = lire("presence.enseignants", []); // [{id, nom}]
-let classes = lire("presence.classes", {});   // { "DUT-GC1": [{id, matricule, nom}] }
+let classes = lire("presence.classes", {});   // { "DUT-GC1": [{id, matricule, nom, statut, td, tp}] }
+let salles = lire("presence.salles", []);     // [{salle, batiment, type}]
 let seances = lire("presence.seances", []);   // [{cle, classe, date, creneau, ue, salle, scanneur, scans:[{id,heure,mode}], envoye}]
 let seance = null;                            // séance en cours de scan
 
@@ -193,7 +204,8 @@ async function chargerClasses() {
     if (!r.ok) continue;
     resultat[nom] = analyserCsv(await r.text())
       .filter((e) => e.id)
-      .map((e) => ({ id: e.id.toUpperCase(), matricule: e.matricule || "", nom: e.noms_prenoms || "" }));
+      .map((e) => ({ id: e.id.toUpperCase(), matricule: e.matricule || "", nom: e.noms_prenoms || "", statut: (e.statut || "").toLowerCase(),
+                     td: (e.groupe_td || "").toUpperCase(), tp: (e.groupe_tp || "").toUpperCase() }));
   }
   if (!Object.keys(resultat).length) throw new Error("Aucun fichier etudiants.csv lisible dans le dépôt.");
   classes = resultat;
@@ -203,7 +215,75 @@ async function chargerClasses() {
     enseignants = analyserCsv(await re.text()).filter((e) => e.id).map((e) => ({ id: e.id.toUpperCase(), nom: e.noms_prenoms || "" }));
     ecrire("presence.enseignants", enseignants);
   }
+  const rs = await gh("salles.csv", { brut: true });
+  if (rs.ok) {
+    salles = analyserCsv(await rs.text()).filter((x) => x.salle);
+    ecrire("presence.salles", salles);
+  }
 }
+
+// ---------- Groupes et salles ----------
+const NATURES = { CM: "CM", TD: "TD", TP: "TP" };
+const colonneGroupe = (nature) => (nature === "TD" ? "td" : nature === "TP" ? "tp" : "");
+function groupesDe(classe, nature) {
+  const col = colonneGroupe(nature);
+  if (!col) return [];
+  return [...new Set((classes[classe] || []).map((e) => e[col]).filter(Boolean))].sort();
+}
+function libelleSeance(s) {
+  const n = s.nature || "CM";
+  if (n === "CM") return "CM";
+  return n + (s.groupe ? " · groupe " + s.groupe : " · sans répartition");
+}
+// Étudiants attendus à la séance (sert au compteur et à la règle P/A)
+function attendus(s) {
+  const liste = classes[s.classe] || [], n = s.nature || "CM", col = colonneGroupe(n);
+  if (n === "CM") return liste;
+  if (!s.groupe) return [];
+  return liste.filter((e) => e[col] === s.groupe);
+}
+function remplirGroupes() {
+  const classe = $("s-classe").value, nature = $("s-nature").value, sel = $("s-groupe"), avant = sel.value;
+  sel.innerHTML = "";
+  if (nature === "CM") { $("bloc-groupe").classList.add("cache"); return; }
+  $("bloc-groupe").classList.remove("cache");
+  const gr = groupesDe(classe, nature);
+  if (!gr.length) {
+    const o = document.createElement("option"); o.value = ""; o.textContent = "Sans répartition"; sel.appendChild(o);
+  }
+  for (const g of gr) {
+    const nb = (classes[classe] || []).filter((e) => e[colonneGroupe(nature)] === g).length;
+    const o = document.createElement("option"); o.value = g; o.textContent = "Groupe " + g + " (" + nb + ")"; sel.appendChild(o);
+  }
+  if ([...sel.options].some((o) => o.value === avant)) sel.value = avant;
+}
+function remplirSalles(changementNature) {
+  const sel = $("s-salle-choix"), nature = $("s-nature").value;
+  const memo = lire("presence.salle." + nature, nature === "TP" ? "Labo de Matériaux" : "Atelier GC");
+  const avant = changementNature || !sel.value ? memo : sel.value;
+  sel.innerHTML = "";
+  const types = [["labo", "Laboratoires"], ["atelier", "Ateliers et amphis"], ["amphi", ""], ["salle", "Salles de cours"]];
+  const ordre = nature === "TP" ? ["labo", "atelier", "amphi", "salle"] : ["atelier", "amphi", "salle", "labo"];
+  const groupes = {};
+  for (const x of salles) { const t = types.some((y) => y[0] === x.type) ? x.type : "salle"; (groupes[t] = groupes[t] || []).push(x); }
+  const titres = { labo: "Laboratoires", atelier: "Ateliers et amphis", amphi: "Ateliers et amphis", salle: "Salles de cours" };
+  const og = {};
+  for (const t of ordre) {
+    if (!groupes[t]) continue;
+    const titre = titres[t];
+    if (!og[titre]) { og[titre] = document.createElement("optgroup"); og[titre].label = titre; sel.appendChild(og[titre]); }
+    for (const x of groupes[t]) {
+      const o = document.createElement("option"); o.value = x.salle;
+      o.textContent = x.salle + (x.batiment ? " · " + x.batiment : ""); og[titre].appendChild(o);
+    }
+  }
+  const autre = document.createElement("option"); autre.value = "__autre"; autre.textContent = "Autre salle…"; sel.appendChild(autre);
+  if ([...sel.options].some((o) => o.value === avant)) sel.value = avant;
+  else if (avant && avant !== "__autre") { sel.value = "__autre"; $("s-salle").value = avant; }
+  majChampSalle();
+}
+function majChampSalle() { $("s-salle").classList.toggle("cache", $("s-salle-choix").value !== "__autre"); }
+function salleChoisie() { return $("s-salle-choix").value === "__autre" ? $("s-salle").value.trim() : $("s-salle-choix").value; }
 
 // ---------- Navigation ----------
 function afficher(ecran) {
@@ -260,6 +340,7 @@ function ouvrirAccueil() {
   if (classes[avant]) sel.value = avant;
   $("s-date").value = dateLocale(new Date()); derniereOuverture = $("s-date").value;
   $("s-creneau").value = creneauActuel();
+  remplirGroupes(); remplirSalles();
   message("msg-accueil", ""); message("msg-envoi", "");
   dessinerSeances();
   afficher("accueil");
@@ -270,7 +351,7 @@ function dessinerSeances() {
   for (const s of seances.slice().reverse()) {
     const div = document.createElement("div"); div.className = "seance";
     const infos = document.createElement("div"); infos.className = "infos";
-    const t = document.createElement("div"); t.className = "titre"; t.textContent = s.classe + " · " + s.date + " · créneau " + s.creneau;
+    const t = document.createElement("div"); t.className = "titre"; t.textContent = s.classe + " · " + s.date + " · créneau " + s.creneau + " · " + libelleSeance(s);
     const d = document.createElement("div"); d.className = "detail"; d.textContent = s.scans.length + " présent(s)" + (s.ue ? " · " + s.ue : "") + (s.salle ? " · " + s.salle : "");
     infos.append(t, d);
     const etat = document.createElement("span"); etat.className = "etat " + (s.envoye ? "envoye" : "attente"); etat.textContent = s.envoye ? "Envoyée" : "En attente";
@@ -287,26 +368,34 @@ function dessinerSeances() {
 const slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "x";
 $("btn-demarrer").onclick = () => {
   const classe = $("s-classe").value, date = $("s-date").value, creneau = Number($("s-creneau").value);
+  const nature = $("s-nature").value, groupe = nature === "CM" ? "" : $("s-groupe").value, salle = salleChoisie();
   if (!classe || !date) return message("msg-accueil", "Choisissez la classe et la date.", "erreur");
+  if (!salle) return message("msg-accueil", "Indiquez la salle.", "erreur");
   if (date !== dateLocale(new Date()) && !confirm("La date choisie (" + date.split("-").reverse().join("/") +
     ") n'est pas celle d'aujourd'hui (" + dateLocale(new Date()).split("-").reverse().join("/") + "). Continuer avec cette date ?")) {
     $("s-date").value = dateLocale(new Date()); return;
   }
   ecrire("presence.derniereClasse", classe);
-  let s = seances.find((x) => x.classe === classe && x.date === date && x.creneau === creneau);
+  ecrire("presence.salle." + nature, $("s-salle-choix").value === "__autre" ? salle : $("s-salle-choix").value);
+  let s = seances.find((x) => x.classe === classe && x.date === date && x.creneau === creneau &&
+                               (x.nature || "CM") === nature && (x.groupe || "") === groupe);
   if (!s) {
     const h = new Date();
-    s = { cle: "C" + creneau + "_" + slug(cfg.scanneur) + "_" + deuxChiffres(h.getHours()) + deuxChiffres(h.getMinutes()) + deuxChiffres(h.getSeconds()),
-          classe, date, creneau, ue: $("s-ue").value.trim(), salle: $("s-salle").value.trim(), scanneur: cfg.scanneur, scans: [], envoye: false };
+    s = { cle: "C" + creneau + "_" + nature + (groupe ? "-" + slug(groupe) : "") + "_" + slug(cfg.scanneur) + "_" +
+               deuxChiffres(h.getHours()) + deuxChiffres(h.getMinutes()) + deuxChiffres(h.getSeconds()),
+          classe, date, creneau, nature, groupe, ue: $("s-ue").value.trim(), salle, scanneur: cfg.scanneur, scans: [], envoye: false };
     seances.push(s);
     if (seances.length > 60) seances = seances.filter((x, i) => !x.envoye || i >= seances.length - 60);
     ecrire("presence.seances", seances);
   } else {
     if ($("s-ue").value.trim()) s.ue = $("s-ue").value.trim();
-    if ($("s-salle").value.trim()) s.salle = $("s-salle").value.trim();
+    s.salle = salle;
   }
   demarrerScan(s);
 };
+$("s-classe").onchange = () => remplirGroupes();
+$("s-nature").onchange = () => { remplirGroupes(); remplirSalles(true); };
+$("s-salle-choix").onchange = majChampSalle;
 $("btn-maj-listes").onclick = async () => {
   message("msg-envoi", "Mise à jour des listes…");
   try { await chargerClasses(); ouvrirAccueil(); message("msg-envoi", "Listes mises à jour.", "ok"); }
@@ -315,9 +404,10 @@ $("btn-maj-listes").onclick = async () => {
 
 // ---------- Envoi ----------
 function contenuCsv(s) {
-  const lignes = ["date,creneau,classe,id,heure,mode,ue,salle,scanneur"];
-  for (const x of s.scans) lignes.push([s.date, s.creneau, s.classe, x.id, x.heure, x.mode, s.ue, s.salle, s.scanneur].map(csvChamp).join(","));
-  for (const x of s.enseignants || []) lignes.push([s.date, s.creneau, s.classe, x.id, x.heure, "enseignant", s.ue, s.salle, s.scanneur].map(csvChamp).join(","));
+  const lignes = ["date,creneau,classe,id,heure,mode,ue,salle,scanneur,nature,groupe"];
+  const fin = [s.nature || "CM", s.groupe || ""];
+  for (const x of s.scans) lignes.push([s.date, s.creneau, s.classe, x.id, x.heure, x.mode, s.ue, s.salle, s.scanneur, ...fin].map(csvChamp).join(","));
+  for (const x of s.enseignants || []) lignes.push([s.date, s.creneau, s.classe, x.id, x.heure, "enseignant", s.ue, s.salle, s.scanneur, ...fin].map(csvChamp).join(","));
   return lignes.join("\n") + "\n";
 }
 function base64Utf8(texte) {
@@ -332,7 +422,7 @@ async function envoyer(s) {
   if (existant.ok) sha = (await existant.json()).sha;
   else if (existant.status !== 404) throw new Error(expliquer(existant));
   const rep = await gh(chemin, { method: "PUT", body: {
-    message: "Présence " + s.classe + " " + s.date + " créneau " + s.creneau + " (" + s.scans.length + " présents) – " + s.scanneur,
+    message: "Présence " + s.classe + " " + s.date + " créneau " + s.creneau + " " + libelleSeance(s) + " (" + s.scans.length + " présents) – " + s.scanneur,
     content: base64Utf8(contenuCsv(s)), sha,
   } });
   if (!rep.ok) throw new Error(expliquer(rep));
@@ -374,7 +464,13 @@ function retour(type, ligne1, ligne2) {
   bip(type);
 }
 function majCompteur() {
-  $("compteur").innerHTML = seance.scans.length + " <small>présent(s) sur " + (classes[seance.classe] || []).length + "</small>";
+  const att = attendus(seance), ids = new Set(att.map((e) => e.id));
+  const dansGroupe = seance.scans.filter((x) => ids.has(x.id)).length, horsGroupe = seance.scans.length - dansGroupe;
+  const n = seance.nature || "CM";
+  $("compteur").innerHTML = (n !== "CM" && !seance.groupe)
+    ? seance.scans.length + " <small>présent(s) · pointage libre</small>"
+    : dansGroupe + " <small>présent(s) sur " + att.length + (n === "CM" ? "" : " (groupe " + seance.groupe + ")") +
+      (horsGroupe ? " · " + horsGroupe + " hors groupe" : "") + "</small>";
   const noms = (seance.enseignants || []).map((x) => (enseignants.find((e) => e.id === x.id) || { nom: x.id }).nom);
   $("ens-etat").textContent = noms.length ? "Enseignant émargé : " + noms.join(", ") : "Enseignant : pas encore émargé (scannez sa carte)";
 }
@@ -389,6 +485,12 @@ function pointer(id, mode) {
   if (ens) {
     seance.enseignants = seance.enseignants || [];
     if (seance.enseignants.some((x) => x.id === ens.id)) return retour("orange", ens.nom, "Enseignant · déjà émargé");
+    if (seance.enseignants.length) {
+      const deja = seance.enseignants.map((x) => (enseignants.find((e) => e.id === x.id) || { nom: x.id }).nom).join(", ");
+      const ok = confirm("Un enseignant est déjà émargé pour cette séance : " + deja + ".\n\nAjouter aussi " + ens.nom + " ?");
+      dernierInstant = Date.now();
+      if (!ok) return retour("orange", ens.nom, "Émargement non ajouté");
+    }
     seance.enseignants.push({ id: ens.id, heure: heureActuelle() });
     seance.envoye = false; ecrire("presence.seances", seances); majCompteur();
     return retour("bleu", ens.nom, "Enseignant · émargement enregistré");
@@ -407,10 +509,15 @@ function pointer(id, mode) {
     return retour("orange", "Carte non encore enregistrée", id + " · présence notée, à signaler au département");
   }
   if (seance.scans.some((x) => x.id === etu.id)) return retour("orange", etu.nom, "Déjà pointé(e)");
-  seance.scans.push({ id: etu.id, heure: heureActuelle(), mode });
+  const n = seance.nature || "CM", col = colonneGroupe(n);
+  const sonGroupe = col ? etu[col] : "";
+  const hors = n !== "CM" && seance.groupe && sonGroupe && sonGroupe !== seance.groupe;
+  seance.scans.push({ id: etu.id, heure: heureActuelle(), mode: hors ? "hors-groupe" : mode });
   seance.envoye = false;
   ecrire("presence.seances", seances);
   majCompteur();
+  if (hors) return retour("orange", etu.nom, "Groupe " + sonGroupe + " · présence notée hors de son groupe");
+  if (n !== "CM" && seance.groupe && !sonGroupe) return retour("vert", etu.nom, "Présent(e) · aucun groupe de " + n + " attribué");
   retour("vert", etu.nom, etu.id + " · présent(e)");
 }
 function analyser() {
@@ -434,7 +541,7 @@ function analyser() {
 }
 async function demarrerScan(s) {
   seance = s; dernierCode = "";
-  $("titre").textContent = s.classe + " · créneau " + s.creneau;
+  $("titre").textContent = s.classe + " · C" + s.creneau + " · " + libelleSeance(s);
   $("retour").className = ""; $("retour").textContent = "Présentez une carte devant la caméra";
   $("recherche").value = ""; $("resultats").innerHTML = ""; message("msg-scan", "");
   majCompteur(); afficher("scan");
