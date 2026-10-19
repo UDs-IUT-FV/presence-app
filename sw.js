@@ -1,5 +1,5 @@
 // Permet d'ouvrir l'application sans connexion : réseau d'abord, copie locale en secours.
-const CACHE = "presence-v6";
+const CACHE = "presence-v7";
 const FICHIERS = ["./", "index.html", "jsQR.js", "filieres.json"];
 
 self.addEventListener("install", (e) => {

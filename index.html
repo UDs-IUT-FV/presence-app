@@ -140,6 +140,8 @@ const CRENEAUX = { 1: "07h30–09h30", 2: "09h40–11h40", 3: "12h30–14h30", 4
 const lire = (cle, defaut) => { try { const v = localStorage.getItem(cle); return v ? JSON.parse(v) : defaut; } catch (e) { return defaut; } };
 const ecrire = (cle, v) => { try { localStorage.setItem(cle, JSON.stringify(v)); return true; } catch (e) { alert("Impossible d'enregistrer sur ce téléphone : " + e.message); return false; } };
 let cfg = lire("presence.cfg", null);
+// Une configuration sauvegardée par une ancienne version ne suffit plus : elle doit être revalidée.
+let configurationValidee = lire("presence.configurationValidee", false) === true;
 let enseignants = lire("presence.enseignants", []); // [{id, nom}]
 let classes = lire("presence.classes", {});   // { "DUT-GC1": [{id, matricule, nom, statut, td, tp}] }
 let salles = lire("presence.salles", []);     // [{salle, batiment, type}]
@@ -323,12 +325,15 @@ function ouvrirReglages() {
   $("cfg-compte").value = cfg ? cfg.compte : "";
   $("cfg-jeton").value = cfg ? cfg.jeton : "";
   $("cfg-scanneur").value = cfg ? cfg.scanneur : "";
-  $("btn-annuler-reglages").classList.toggle("cache", !cfg || !Object.keys(classes).length);
+  $("btn-annuler-reglages").classList.toggle("cache", !configurationValidee || !cfg || !Object.keys(classes).length);
   message("msg-reglages", "");
   afficher("reglages");
 }
 $("btn-reglages").onclick = ouvrirReglages;
-$("btn-annuler-reglages").onclick = ouvrirAccueil;
+$("btn-annuler-reglages").onclick = () => {
+  if (configurationValidee && cfg && Object.keys(classes).length) ouvrirAccueil();
+  else ouvrirReglages();
+};
 $("btn-enregistrer").onclick = async () => {
   const nouveau = {
     compte: $("cfg-compte").value.trim(),
@@ -340,6 +345,8 @@ $("btn-enregistrer").onclick = async () => {
   try {
     await chargerClasses();
     ecrire("presence.cfg", cfg);
+    configurationValidee = true;
+    ecrire("presence.configurationValidee", true);
     ouvrirAccueil();
   } catch (e) {
     cfg = ancien;
@@ -643,7 +650,8 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 if (cfg && Object.keys(classes).length && !Object.keys(infoClasse).length) {
   for (const c of Object.keys(classes)) infoClasse[c] = { depot: cfg.depot || "presence-dut-gc1", departement: "", libelle: c, salle_principale: "" };
 }
-if (cfg && Object.keys(classes).length) ouvrirAccueil(); else ouvrirReglages();
+if (configurationValidee && cfg && cfg.compte && cfg.jeton && cfg.scanneur && Object.keys(classes).length) ouvrirAccueil();
+else ouvrirReglages();
 </script>
 </body>
 </html>
