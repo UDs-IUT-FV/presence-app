@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Statistiques de présence – IUT-FV</title>
+<style>
+  :root { --bleu:#1f3864; --serie:#2f5fa7; --fond:#f3f4f6; --carte:#fff; --texte:#111827; --texte2:#374151; --gris:#6b7280; --trait:#e5e7eb;
+          --alerte:#b91c1c; --alerte-fond:#fef2f2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--fond); color:var(--texte); font-size:14px; }
+  header { background:var(--bleu); color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:18px; font-weight:600; } header a { color:#fff; font-size:14px; }
+  main { max-width:1240px; margin:0 auto; padding:18px 16px 60px; }
+  .bloc { background:var(--carte); border:1px solid var(--trait); border-radius:10px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:15px; margin:0 0 4px; } .sous { color:var(--gris); font-size:12.5px; margin:0 0 10px; }
+  label { display:block; font-size:12px; color:var(--gris); margin:0 0 4px; }
+  input, select { padding:8px; font-size:14px; border:1px solid #d1d5db; border-radius:7px; background:#fff; color:var(--texte); width:100%; }
+  button { padding:8px 12px; font-size:13.5px; border-radius:7px; border:1px solid var(--bleu); background:#fff; color:var(--bleu); cursor:pointer; }
+  button.principal { background:var(--bleu); color:#fff; font-weight:600; }
+  .filtres { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:16px; }
+  .kpi { background:var(--carte); border:1px solid var(--trait); border-radius:10px; padding:14px 16px; }
+  .kpi .val { font-size:26px; font-weight:700; letter-spacing:-.01em; color:var(--texte); }
+  .kpi .lib { font-size:12.5px; color:var(--gris); margin-top:2px; }
+  .grille { display:grid; grid-template-columns:repeat(auto-fit, minmax(460px, 1fr)); gap:16px; }
+  @media (max-width:520px) { .grille { grid-template-columns:1fr; } }
+  .graphe { position:relative; height:260px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--trait); }
+  th { font-size:11.5px; color:var(--gris); font-weight:600; text-transform:uppercase; letter-spacing:.02em; cursor:pointer; white-space:nowrap; position:sticky; top:0; background:#fff; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; } td.id { white-space:nowrap; }
+  tr.alerte td { background:var(--alerte-fond); } tr.alerte td.taux { color:var(--alerte); font-weight:700; }
+  .defile { max-height:420px; overflow:auto; border:1px solid var(--trait); border-radius:8px; }
+  .entete-tableau { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .entete-tableau input { width:220px; }
+  .onglets { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .onglets button[aria-pressed="true"] { background:var(--bleu); color:#fff; }
+  .erreur { color:var(--alerte); white-space:pre-wrap; margin-top:8px; } .info { color:var(--gris); margin-top:8px; }
+  .cache { display:none !important; }
+  .symbole { font-weight:700; color:var(--alerte); margin-right:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Statistiques de présence</h1>
+  <nav><a href="index.html">Application de scan</a> · <a href="admin.html">Administration</a></nav>
+</header>
+<main>
+
+<section class="bloc" id="bloc-connexion">
+  <h2>Connexion</h2>
+  <p class="sous">Le tableau de bord n'affiche que les filières auxquelles votre jeton donne accès (en lecture). Les données sont mises à jour chaque soir à 19 h.</p>
+  <div class="filtres" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr))">
+    <div><label for="c-compte">Compte GitHub de l'IUT</label><input id="c-compte" autocapitalize="none" autocomplete="off" placeholder="UDs-IUT-FV"></div>
+    <div><label for="c-jeton">Jeton de consultation</label><input id="c-jeton" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+    <div><button class="principal" id="btn-charger" style="width:100%">Charger les données</button></div>
+  </div>
+  <div id="msg-connexion"></div>
+</section>
+
+<div id="tableau" class="cache">
+  <section class="bloc">
+    <div class="filtres">
+      <div><label for="f-dep">Département</label><select id="f-dep"></select></div>
+      <div><label for="f-fil">Filière</label><select id="f-fil"></select></div>
+      <div><label for="f-du">Du</label><input id="f-du" type="date"></div>
+      <div><label for="f-au">Au</label><input id="f-au" type="date"></div>
+      <div><label for="f-nat">Nature</label><select id="f-nat"><option value="">CM, TD et TP</option><option>CM</option><option>TD</option><option>TP</option></select></div>
+      <div><label for="f-ue">UE / matière</label><select id="f-ue"></select></div>
+      <div><label for="f-seuil">Seuil d'alerte (absences)</label><select id="f-seuil"><option value="10">10 %</option><option value="15">15 %</option><option value="20" selected>20 %</option><option value="25">25 %</option><option value="30">30 %</option></select></div>
+    </div>
+    <div class="onglets" style="margin:12px 0 0">
+      <button data-periode="semaine">Cette semaine</button>
+      <button data-periode="4">4 dernières semaines</button>
+      <button data-periode="mois">Ce mois-ci</button>
+      <button data-periode="tout">Toute l'année</button>
+    </div>
+  </section>
+
+  <div class="kpis">
+    <div class="kpi"><div class="val" id="k-taux">–</div><div class="lib">Taux de présence</div></div>
+    <div class="kpi"><div class="val" id="k-seances">–</div><div class="lib">Séances pointées</div></div>
+    <div class="kpi"><div class="val" id="k-heures">–</div><div class="lib">Heures d'absence (étudiant × heure)</div></div>
+    <div class="kpi"><div class="val" id="k-alerte">–</div><div class="lib" id="k-alerte-lib">Étudiants au-dessus du seuil</div></div>
+    <div class="kpi"><div class="val" id="k-qr">–</div><div class="lib">Séances émargées par l'enseignant (QR)</div></div>
+  </div>
+
+  <div class="grille">
+    <section class="bloc"><h2>Taux de présence par semaine</h2><p class="sous">Présents parmi les étudiants attendus, en %.</p><div class="graphe"><canvas id="g-semaine"></canvas></div></section>
+    <section class="bloc"><h2 id="g-groupe-titre">Taux de présence par filière</h2><p class="sous">Du plus faible au plus élevé.</p><div class="graphe"><canvas id="g-groupe"></canvas></div></section>
+    <section class="bloc"><h2>Taux de présence par UE</h2><p class="sous">Du plus faible au plus élevé (15 au maximum).</p><div class="graphe"><canvas id="g-ue"></canvas></div></section>
+    <section class="bloc"><h2>Taux de présence par créneau</h2><p class="sous">Créneau 1 (07h30) à créneau 5 (16h50), tous jours confondus.</p><div class="graphe"><canvas id="g-creneau"></canvas></div></section>
+    <section class="bloc"><h2>Taux de présence par jour</h2><p class="sous">Tous créneaux confondus.</p><div class="graphe"><canvas id="g-jour"></canvas></div></section>
+  </div>
+
+  <section class="bloc">
+    <div class="onglets" id="onglets-tables">
+      <button data-table="etudiants" aria-pressed="true">Étudiants</button>
+      <button data-table="enseignants" aria-pressed="false">Enseignants</button>
+      <button data-table="seances" aria-pressed="false">Séances</button>
+      <button data-table="filieres" aria-pressed="false">Filières</button>
+    </div>
+    <div class="entete-tableau">
+      <p class="sous" id="t-desc" style="margin:0"></p>
+      <div style="display:flex; gap:8px; align-items:center">
+        <input id="t-recherche" placeholder="Rechercher…">
+        <button id="btn-export">Exporter (Excel)</button>
+      </div>
+    </div>
+    <div class="defile"><table id="t-donnees"></table></div>
+  </section>
+</div>
+
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const HEURES_SEANCE = 2;
+const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+let cfg = null, catalogue = null, donnees = []; // donnees : séances de toutes les filières chargées
+let etudiants = {}; // etudiants[code][id] = {nom, td, tp, statut}
+let tableCourante = "etudiants", tri = { col: null, desc: true }, lignesTable = [], colonnesTable = [];
+
+// ---------- Outils ----------
+function analyserCsv(texte) {
+  const lignes = []; let champ = "", ligne = [], g = false;
+  texte = texte.replace(/^﻿/, "");
+  for (let i = 0; i < texte.length; i++) {
+    const c = texte[i];
+    if (g) { if (c === '"' && texte[i + 1] === '"') { champ += '"'; i++; } else if (c === '"') g = false; else champ += c; }
+    else if (c === '"') g = true;
+    else if (c === ",") { ligne.push(champ); champ = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && texte[i + 1] === "\n") i++; ligne.push(champ); champ = ""; if (ligne.some((x) => x !== "")) lignes.push(ligne); ligne = []; }
+    else champ += c;
+  }
+  ligne.push(champ); if (ligne.some((x) => x !== "")) lignes.push(ligne);
+  if (!lignes.length) return [];
+  const ent = lignes.shift().map((h) => h.trim());
+  return lignes.map((l) => Object.fromEntries(ent.map((h, i) => [h, (l[i] || "").trim()])));
+}
+const pct = (a, b) => (b ? (100 * a) / b : null);
+const fmtPct = (v) => (v == null ? "–" : v.toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + " %");
+const fmtNb = (v) => Number(v).toLocaleString("fr-FR");
+const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+function lundi(dateIso) { const d = new Date(dateIso + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return iso(d); }
+const frDate = (d) => d.slice(8, 10) + "/" + d.slice(5, 7);
+const listeIds = (t) => (t ? t.split(" ").filter(Boolean) : []);
+
+async function gh(depot, chemin, brut) {
+  const url = "https://api.github.com/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(depot) + (chemin ? "/contents/" + chemin.split("/").map(encodeURIComponent).join("/") : "");
+  return fetch(url, { cache: "no-store", headers: { Authorization: "Bearer " + cfg.jeton, Accept: brut ? "application/vnd.github.raw+json" : "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } });
+}
+async function parLots(el, n, fn) { const r = []; for (let i = 0; i < el.length; i += n) r.push(...await Promise.all(el.slice(i, i + n).map(fn))); return r; }
+
+// ---------- Chargement ----------
+try { $("c-compte").value = localStorage.getItem("stats.compte") || ""; } catch (e) {}
+$("btn-charger").onclick = async () => {
+  cfg = { compte: $("c-compte").value.trim(), jeton: $("c-jeton").value.trim() };
+  const msg = $("msg-connexion");
+  if (!cfg.compte || !cfg.jeton) { msg.className = "erreur"; msg.textContent = "Saisissez le compte et le jeton."; return; }
+  $("btn-charger").disabled = true; msg.className = "info"; msg.textContent = "Chargement du catalogue…";
+  try {
+    const r = await fetch("filieres.json", { cache: "no-store" });
+    if (!r.ok) throw new Error("Catalogue filieres.json introuvable.");
+    catalogue = await r.json();
+    try { localStorage.setItem("stats.compte", cfg.compte); } catch (e) {}
+    msg.textContent = "Recherche des filières accessibles…";
+    const depots = [...new Set(catalogue.filieres.map((f) => f.depot))];
+    const ok = new Set((await parLots(depots, 8, async (d) => {
+      const x = await gh(d); if (x.status === 401) throw new Error("Jeton refusé (401) : erroné, expiré ou révoqué."); return x.ok ? d : null;
+    })).filter(Boolean));
+    const filieres = catalogue.filieres.filter((f) => ok.has(f.depot));
+    if (!filieres.length) throw new Error("Ce jeton ne donne accès à aucune filière.");
+    donnees = []; etudiants = {};
+    let n = 0;
+    await parLots(filieres, 6, async (f) => {
+      const [rs, re] = await Promise.all([gh(f.depot, "stats/" + f.code + "/seances.csv", true), gh(f.depot, "classes/" + f.code + "/etudiants.csv", true)]);
+      if (re.ok) {
+        etudiants[f.code] = {};
+        for (const e of analyserCsv(await re.text())) if (e.id) etudiants[f.code][e.id.toUpperCase()] = { nom: e.noms_prenoms, td: e.groupe_td, tp: e.groupe_tp, statut: e.statut, matricule: e.matricule };
+      }
+      if (rs.ok) for (const s of analyserCsv(await rs.text())) donnees.push({ ...s, filiere: f.code, departement: f.departement, semaine: lundi(s.date),
+        jour: (new Date(s.date + "T12:00:00").getDay() + 6) % 7, presents: listeIds(s.presents), absents: listeIds(s.absents), hors: listeIds(s.hors) });
+      msg.textContent = "Chargement des données… " + (++n) + " / " + filieres.length + " filière(s)";
+    });
+    msg.className = "info";
+    msg.textContent = filieres.length + " filière(s) accessible(s), " + fmtNb(donnees.length) + " séance(s) pointée(s)." +
+      (donnees.length ? "" : " Les statistiques apparaissent après le premier envoi de scans dans une filière.");
+    initialiserFiltres(filieres);
+    $("tableau").classList.remove("cache");
+    appliquerPeriode("tout");
+  } catch (e) { msg.className = "erreur"; msg.textContent = e.message === "Failed to fetch" ? "Pas de connexion Internet." : e.message; }
+  $("btn-charger").disabled = false;
+};
+
+// ---------- Filtres ----------
+let filieresAccessibles = [];
+function initialiserFiltres(filieres) {
+  filieresAccessibles = filieres;
+  const deps = [...new Set(filieres.map((f) => f.departement))];
+  const sd = $("f-dep"); sd.innerHTML = "";
+  if (deps.length > 1) sd.add(new Option("Tous les départements", ""));
+  for (const d of deps) sd.add(new Option(d, d));
+  remplirFilieres();
+  sd.onchange = () => { remplirFilieres(); remplirUE(); calculer(); };
+  $("f-fil").onchange = () => { remplirUE(); calculer(); };
+  for (const id of ["f-du", "f-au", "f-nat", "f-ue", "f-seuil"]) $(id).onchange = () => { if (id === "f-nat") remplirUE(); calculer(); };
+}
+function remplirFilieres() {
+  const dep = $("f-dep").value, sf = $("f-fil"); sf.innerHTML = "";
+  const liste = filieresAccessibles.filter((f) => !dep || f.departement === dep);
+  if (liste.length > 1) sf.add(new Option("Toutes les filières", ""));
+  for (const f of liste) sf.add(new Option(f.libelle, f.code));
+}
+function remplirUE() {
+  const su = $("f-ue"), avant = su.value; su.innerHTML = ""; su.add(new Option("Toutes les UE", ""));
+  const ues = [...new Set(filtrer({ sansUE: true }).map((s) => s.ue).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+  for (const u of ues) su.add(new Option(u, u));
+  if (ues.includes(avant)) su.value = avant;
+}
+document.querySelectorAll("[data-periode]").forEach((b) => (b.onclick = () => appliquerPeriode(b.dataset.periode)));
+function appliquerPeriode(p) {
+  const auj = new Date(), dates = donnees.map((s) => s.date).sort();
+  let du = "", au = iso(auj);
+  if (p === "semaine") du = lundi(iso(auj));
+  else if (p === "4") { const d = new Date(lundi(iso(auj)) + "T12:00:00"); d.setDate(d.getDate() - 21); du = iso(d); }
+  else if (p === "mois") du = iso(new Date(auj.getFullYear(), auj.getMonth(), 1));
+  else { du = dates[0] || ""; au = dates[dates.length - 1] || iso(auj); }
+  $("f-du").value = du; $("f-au").value = au;
+  remplirUE(); calculer();
+}
+function filtrer(o = {}) {
+  const dep = $("f-dep").value, fil = $("f-fil").value, du = $("f-du").value, au = $("f-au").value, nat = $("f-nat").value, ue = o.sansUE ? "" : $("f-ue").value;
+  return donnees.filter((s) => (!dep || s.departement === dep) && (!fil || s.filiere === fil) && (!du || s.date >= du) && (!au || s.date <= au) &&
+    (!nat || s.nature === nat) && (!ue || s.ue === ue));
+}
+
+// ---------- Calculs ----------
+let graphes = {};
+function agreger(seances, cle) {
+  const m = new Map();
+  for (const s of seances) {
+    const k = cle(s); if (k == null) continue;
+    if (!s.presents.length && !s.absents.length) continue; // TP sans répartition : aucun étudiant attendu, pas de taux
+    const a = m.get(k) || { att: 0, pres: 0, n: 0 };
+    a.att += s.presents.length + s.absents.length; a.pres += s.presents.length; a.n++;
+    m.set(k, a);
+  }
+  return m;
+}
+function calculer() {
+  const sel = filtrer(), seuil = +$("f-seuil").value;
+  const att = sel.reduce((t, s) => t + s.presents.length + s.absents.length, 0), pres = sel.reduce((t, s) => t + s.presents.length, 0);
+  const abs = att - pres;
+  $("k-taux").textContent = fmtPct(pct(pres, att));
+  $("k-seances").textContent = fmtNb(sel.length);
+  $("k-heures").textContent = fmtNb(abs * HEURES_SEANCE) + " h";
+  $("k-qr").textContent = fmtPct(pct(sel.filter((s) => s.emarge_qr === "1").length, sel.length));
+  const parEtu = statsEtudiants(sel);
+  const enAlerte = parEtu.filter((e) => e.taux_abs >= seuil);
+  $("k-alerte").textContent = fmtNb(enAlerte.length);
+  $("k-alerte-lib").textContent = "Étudiants avec au moins " + seuil + " % d'absences";
+
+  // Graphes
+  const semaines = [...agreger(sel, (s) => s.semaine).entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  tracer("g-semaine", "line", semaines.map(([k]) => "Sem. du " + frDate(k)), semaines.map(([, v]) => pct(v.pres, v.att)), semaines.map(([, v]) => v));
+  const plusieursFilieres = new Set(sel.map((s) => s.filiere)).size > 1;
+  $("g-groupe-titre").textContent = plusieursFilieres ? "Taux de présence par filière" : "Taux de présence par nature et groupe";
+  const libFil = (c) => (catalogue.filieres.find((f) => f.code === c) || {}).libelle || c;
+  const groupes = [...agreger(sel, (s) => (plusieursFilieres ? libFil(s.filiere) : s.nature + (s.groupe ? " groupe " + s.groupe : s.nature === "CM" ? " classe entière" : " sans répartition"))).entries()]
+    .sort((a, b) => pct(a[1].pres, a[1].att) - pct(b[1].pres, b[1].att)).slice(0, 15);
+  tracer("g-groupe", "barh", groupes.map(([k]) => k), groupes.map(([, v]) => pct(v.pres, v.att)), groupes.map(([, v]) => v));
+  const ues = [...agreger(sel, (s) => s.ue || "(UE non renseignée)").entries()].sort((a, b) => pct(a[1].pres, a[1].att) - pct(b[1].pres, b[1].att)).slice(0, 15);
+  tracer("g-ue", "barh", ues.map(([k]) => k), ues.map(([, v]) => pct(v.pres, v.att)), ues.map(([, v]) => v));
+  const cr = [...agreger(sel, (s) => "C" + s.creneau).entries()].sort();
+  tracer("g-creneau", "bar", cr.map(([k]) => "Créneau " + k.slice(1)), cr.map(([, v]) => pct(v.pres, v.att)), cr.map(([, v]) => v));
+  const jr = [...agreger(sel, (s) => s.jour).entries()].sort((a, b) => a[0] - b[0]);
+  tracer("g-jour", "bar", jr.map(([k]) => JOURS[k]), jr.map(([, v]) => pct(v.pres, v.att)), jr.map(([, v]) => v));
+  afficherTable(sel, parEtu);
+}
+function statsEtudiants(sel) {
+  const m = new Map();
+  for (const s of sel) {
+    const base = etudiants[s.filiere] || {};
+    const maj = (id, present) => {
+      const k = s.filiere + "|" + id;
+      const e = m.get(k) || { filiere: s.filiere, id, nom: (base[id] || {}).nom || "(non enregistré)", groupe: (base[id] || {}).td || "", matricule: (base[id] || {}).matricule || "", att: 0, abs: 0, parUE: {} };
+      e.att++; if (!present) { e.abs++; const u = s.ue || "?"; e.parUE[u] = (e.parUE[u] || 0) + 1; }
+      m.set(k, e);
+    };
+    s.presents.forEach((id) => maj(id, true)); s.absents.forEach((id) => maj(id, false));
+  }
+  return [...m.values()].map((e) => ({ ...e, taux_abs: pct(e.abs, e.att), heures: e.abs * HEURES_SEANCE,
+    ue_max: Object.entries(e.parUE).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([u, n]) => u + " (" + n + ")").join(", ") }));
+}
+function tracer(id, type, etiquettes, valeurs, details) {
+  if (typeof Chart === "undefined") return;
+  if (graphes[id]) graphes[id].destroy();
+  const horizontal = type === "barh";
+  const style = getComputedStyle(document.documentElement), serie = style.getPropertyValue("--serie").trim(), gris = "#6b7280", grille = "#eef0f3";
+  graphes[id] = new Chart($(id), {
+    type: horizontal ? "bar" : type,
+    data: { labels: etiquettes, datasets: [{ data: valeurs, backgroundColor: serie, borderColor: serie, borderWidth: type === "line" ? 2 : 0,
+      borderRadius: type === "line" ? 0 : 4, borderSkipped: "start", pointRadius: 4, pointHoverRadius: 6, tension: 0, maxBarThickness: 22 }] },
+    options: {
+      indexAxis: horizontal ? "y" : "x", maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: (c) => fmtPct(c.parsed[horizontal ? "x" : "y"]),
+        afterLabel: (c) => { const d = details[c.dataIndex]; return d ? fmtNb(d.pres) + " présences sur " + fmtNb(d.att) + " attendues · " + d.n + " séance(s)" : ""; },
+      } } },
+      interaction: { mode: type === "line" ? "index" : "nearest", intersect: type !== "line" },
+      scales: {
+        [horizontal ? "x" : "y"]: { min: 0, max: 100, ticks: { color: gris, callback: (v) => v + " %" }, grid: { color: grille } },
+        [horizontal ? "y" : "x"]: { ticks: { color: "#374151", autoSkip: !horizontal, font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  });
+}
+
+// ---------- Tableaux ----------
+document.querySelectorAll("#onglets-tables button").forEach((b) => (b.onclick = () => {
+  tableCourante = b.dataset.table; tri = { col: null, desc: true };
+  document.querySelectorAll("#onglets-tables button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  calculer();
+}));
+$("t-recherche").oninput = () => dessinerTable();
+function afficherTable(sel, parEtu) {
+  const seuil = +$("f-seuil").value;
+  const libFil = (c) => (catalogue.filieres.find((f) => f.code === c) || {}).libelle || c;
+  if (tableCourante === "etudiants") {
+    $("t-desc").textContent = "Absences de chaque étudiant sur les séances où il était attendu. En rouge : au moins " + seuil + " % d'absences.";
+    colonnesTable = [["filiere", "Filière"], ["id", "ID"], ["matricule", "Matricule"], ["nom", "Noms et prénoms"], ["groupe", "Gr. TD"], ["att", "Séances attendues", "n"],
+      ["abs", "Absences", "n"], ["heures", "Heures d'abs.", "n"], ["taux_abs", "Taux d'absence", "n%"], ["ue_max", "UE les plus manquées"]];
+    lignesTable = parEtu.map((e) => ({ ...e, filiere: libFil(e.filiere), _alerte: e.taux_abs >= seuil }));
+    if (!tri.col) tri = { col: "taux_abs", desc: true };
+  } else if (tableCourante === "enseignants") {
+    $("t-desc").textContent = "Séances pointées par enseignant. « Émargées par QR » : l'enseignant a présenté sa carte au délégué.";
+    const m = new Map();
+    for (const s of sel) {
+      const noms = s.enseignants ? s.enseignants.split(" ; ") : ["(non émargé)"];
+      for (const nom of noms) {
+        const e = m.get(nom) || { nom, seances: 0, qr: 0, att: 0, pres: 0, ues: new Set(), filieres: new Set() };
+        e.seances++; if (s.emarge_qr === "1") e.qr++; e.att += s.presents.length + s.absents.length; e.pres += s.presents.length;
+        if (s.ue) e.ues.add(s.ue); e.filieres.add(libFil(s.filiere)); m.set(nom, e);
+      }
+    }
+    colonnesTable = [["nom", "Enseignant"], ["seances", "Séances", "n"], ["heures", "Heures", "n"], ["qr", "Émargées par QR", "n"], ["taux", "Taux de présence des étudiants", "n%"], ["ues", "UE"], ["filieres", "Filières"]];
+    lignesTable = [...m.values()].map((e) => ({ ...e, heures: e.seances * HEURES_SEANCE, taux: pct(e.pres, e.att), ues: [...e.ues].join(", "), filieres: [...e.filieres].join(", ") }));
+    if (!tri.col) tri = { col: "seances", desc: true };
+  } else if (tableCourante === "seances") {
+    $("t-desc").textContent = "Chaque séance pointée, avec ses effectifs.";
+    colonnesTable = [["date", "Date"], ["creneau", "Cr.", "n"], ["filiere", "Filière"], ["seance", "Séance"], ["ue", "UE"], ["salle", "Salle"], ["enseignants", "Enseignant"],
+      ["pres", "Présents", "n"], ["abs", "Absents", "n"], ["hors", "Hors groupe", "n"], ["taux", "Taux de présence", "n%"]];
+    lignesTable = sel.map((s) => ({ date: s.date, creneau: +s.creneau, filiere: libFil(s.filiere), seance: s.nature + (s.groupe ? " gr. " + s.groupe : ""), ue: s.ue, salle: s.salle,
+      enseignants: s.enseignants || "(non émargé)", pres: s.presents.length, abs: s.absents.length, hors: s.hors.length, taux: pct(s.presents.length, s.presents.length + s.absents.length) }));
+    if (!tri.col) tri = { col: "date", desc: true };
+  } else {
+    $("t-desc").textContent = "Synthèse par filière sur la période choisie.";
+    const ag = agreger(sel, (s) => s.filiere), ens = statsEtudiants(sel);
+    colonnesTable = [["filiere", "Filière"], ["departement", "Dép."], ["effectif", "Étudiants", "n"], ["seances", "Séances", "n"], ["taux", "Taux de présence", "n%"], ["alerte", "Au-dessus du seuil", "n"]];
+    lignesTable = [...ag.entries()].map(([c, v]) => ({ filiere: libFil(c), departement: (catalogue.filieres.find((f) => f.code === c) || {}).departement,
+      effectif: Object.keys(etudiants[c] || {}).length, seances: v.n, taux: pct(v.pres, v.att), alerte: ens.filter((e) => e.filiere === c && e.taux_abs >= seuil).length }));
+    if (!tri.col) tri = { col: "taux", desc: false };
+  }
+  dessinerTable();
+}
+function dessinerTable() {
+  const q = $("t-recherche").value.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const lignes = lignesTable.filter((l) => !q || colonnesTable.some(([c]) => String(l[c] ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(q)));
+  if (tri.col) lignes.sort((a, b) => {
+    const x = a[tri.col], y = b[tri.col];
+    const r = typeof x === "number" || typeof y === "number" ? (x ?? -1) - (y ?? -1) : String(x ?? "").localeCompare(String(y ?? ""), "fr", { sensitivity: "base" });
+    return tri.desc ? -r : r;
+  });
+  const t = $("t-donnees"); t.innerHTML = "";
+  const tr0 = document.createElement("tr");
+  for (const [c, lib, type] of colonnesTable) {
+    const th = document.createElement("th"); th.textContent = lib + (tri.col === c ? (tri.desc ? " ↓" : " ↑") : ""); if (type) th.className = "n";
+    th.onclick = () => { tri = { col: c, desc: tri.col === c ? !tri.desc : true }; dessinerTable(); };
+    tr0.appendChild(th);
+  }
+  const thead = document.createElement("thead"); thead.appendChild(tr0); t.appendChild(thead);
+  const tb = document.createElement("tbody");
+  for (const l of lignes.slice(0, 2000)) {
+    const tr = document.createElement("tr"); if (l._alerte) tr.className = "alerte";
+    for (const [c, , type] of colonnesTable) {
+      const td = document.createElement("td");
+      if (type) td.className = "n" + (c === "taux_abs" ? " taux" : ""); else if (c === "id" || c === "date") td.className = "id";
+      if (type === "n%") { if (l._alerte && c === "taux_abs") { const s = document.createElement("span"); s.className = "symbole"; s.textContent = "▲"; s.title = "Au-dessus du seuil"; td.appendChild(s); } td.appendChild(document.createTextNode(fmtPct(l[c]))); }
+      else td.textContent = l[c] == null ? "" : String(l[c]);
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  }
+  if (!lignes.length) { const tr = document.createElement("tr"), td = document.createElement("td"); td.colSpan = colonnesTable.length; td.textContent = "Aucune donnée pour ces filtres."; td.style.color = "#6b7280"; tr.appendChild(td); tb.appendChild(tr); }
+  t.appendChild(tb);
+}
+// Export lisible directement par Excel (séparateur ; et décimales à virgule)
+$("btn-export").onclick = () => {
+  const champ = (v) => { v = v == null ? "" : typeof v === "number" ? String(Math.round(v * 10) / 10).replace(".", ",") : String(v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const lignes = [colonnesTable.map(([, l]) => champ(l)).join(";"), ...lignesTable.map((l) => colonnesTable.map(([c]) => champ(l[c])).join(";"))];
+  const blob = new Blob(["﻿" + lignes.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "presence_" + tableCourante + "_" + ($("f-du").value || "debut") + "_" + ($("f-au").value || "fin") + ".csv";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+</script>
+</body>
+</html>

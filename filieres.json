@@ -1,0 +1,486 @@
+{
+ "annee": "2026 / 2027",
+ "annee_id": "26",
+ "depot_reference": "presence-donnees",
+ "departements": [
+  {
+   "code": "ENR",
+   "nom": "Département ENR",
+   "nom_en": ""
+  },
+  {
+   "code": "GBM",
+   "nom": "Département GBM",
+   "nom_en": ""
+  },
+  {
+   "code": "GC",
+   "nom": "Département de Génie Civil",
+   "nom_en": "Department of Civil Engineering"
+  },
+  {
+   "code": "GE",
+   "nom": "Département GE",
+   "nom_en": ""
+  },
+  {
+   "code": "GI",
+   "nom": "Département GI",
+   "nom_en": ""
+  },
+  {
+   "code": "GMP",
+   "nom": "Département GMP",
+   "nom_en": ""
+  },
+  {
+   "code": "GTEE",
+   "nom": "Département GTEE",
+   "nom_en": ""
+  },
+  {
+   "code": "GTR",
+   "nom": "Département GTR",
+   "nom_en": ""
+  },
+  {
+   "code": "TCGCF",
+   "nom": "Département TCGCF",
+   "nom_en": ""
+  }
+ ],
+ "filieres": [
+  {
+   "departement": "ENR",
+   "code": "DUT-EHY2",
+   "libelle": "DUT EHY2",
+   "prefixe_id": "EHY2",
+   "salle_principale": "B116",
+   "depot": "presence-dut-ehy2"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-BIO2",
+   "libelle": "DUT BIO2",
+   "prefixe_id": "BIO2",
+   "salle_principale": "B116",
+   "depot": "presence-dut-bio2"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-EHY1",
+   "libelle": "DUT EHY1",
+   "prefixe_id": "EHY1",
+   "salle_principale": "D002",
+   "depot": "presence-dut-ehy1"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-ESO1",
+   "libelle": "DUT ESO1",
+   "prefixe_id": "ESO1",
+   "salle_principale": "D002",
+   "depot": "presence-dut-eso1"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-EEO1",
+   "libelle": "DUT EEO1",
+   "prefixe_id": "EEO1",
+   "salle_principale": "D002",
+   "depot": "presence-dut-eeo1"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-BIO1",
+   "libelle": "DUT BIO1",
+   "prefixe_id": "BIO1",
+   "salle_principale": "D002",
+   "depot": "presence-dut-bio1"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-ESO2",
+   "libelle": "DUT ESO2",
+   "prefixe_id": "ESO2",
+   "salle_principale": "D006",
+   "depot": "presence-dut-eso2"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-EEO2",
+   "libelle": "DUT EEO2",
+   "prefixe_id": "EEO2",
+   "salle_principale": "D006",
+   "depot": "presence-dut-eeo2"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-ITE1",
+   "libelle": "DUT ITE1",
+   "prefixe_id": "ITE1",
+   "salle_principale": "D005",
+   "depot": "presence-dut-ite1"
+  },
+  {
+   "departement": "ENR",
+   "code": "DUT-ITE2",
+   "libelle": "DUT ITE2",
+   "prefixe_id": "ITE2",
+   "salle_principale": "",
+   "depot": "presence-dut-ite2"
+  },
+  {
+   "departement": "GBM",
+   "code": "DUT-IBM1",
+   "libelle": "DUT IBM1",
+   "prefixe_id": "IBM1",
+   "salle_principale": "D001",
+   "depot": "presence-dut-ibm1"
+  },
+  {
+   "departement": "GBM",
+   "code": "DUT-IBM2",
+   "libelle": "DUT IBM2",
+   "prefixe_id": "IBM2",
+   "salle_principale": "B114",
+   "depot": "presence-dut-ibm2"
+  },
+  {
+   "departement": "GC",
+   "code": "BTS-BAT1",
+   "libelle": "BTS BAT1",
+   "prefixe_id": "BAT1",
+   "salle_principale": "D003",
+   "depot": "presence-bts-bat1"
+  },
+  {
+   "departement": "GC",
+   "code": "BTS-BAT2",
+   "libelle": "BTS BAT2",
+   "prefixe_id": "BAT2",
+   "salle_principale": "D004",
+   "depot": "presence-bts-bat2"
+  },
+  {
+   "departement": "GC",
+   "code": "BTS-TP1",
+   "libelle": "BTS TP1",
+   "prefixe_id": "TP1",
+   "salle_principale": "B004",
+   "depot": "presence-bts-tp1"
+  },
+  {
+   "departement": "GC",
+   "code": "BTS-TP2",
+   "libelle": "BTS TP2",
+   "prefixe_id": "TP2",
+   "salle_principale": "A103",
+   "depot": "presence-bts-tp2"
+  },
+  {
+   "departement": "GC",
+   "code": "DUT-GC1",
+   "libelle": "DUT GC1",
+   "prefixe_id": "GC1",
+   "salle_principale": "Atelier GC",
+   "depot": "presence-donnees"
+  },
+  {
+   "departement": "GC",
+   "code": "DUT-GC2",
+   "libelle": "DUT GC2",
+   "prefixe_id": "GC2",
+   "salle_principale": "B003",
+   "depot": "presence-dut-gc2"
+  },
+  {
+   "departement": "GE",
+   "code": "BTS-ET1",
+   "libelle": "BTS ET1",
+   "prefixe_id": "ET1",
+   "salle_principale": "B008",
+   "depot": "presence-bts-et1"
+  },
+  {
+   "departement": "GE",
+   "code": "BTS-ET2",
+   "libelle": "BTS ET2",
+   "prefixe_id": "ET2",
+   "salle_principale": "A101",
+   "depot": "presence-bts-et2"
+  },
+  {
+   "departement": "GE",
+   "code": "BTS-MSE1",
+   "libelle": "BTS MSE1",
+   "prefixe_id": "MSE1",
+   "salle_principale": "B104",
+   "depot": "presence-bts-mse1"
+  },
+  {
+   "departement": "GE",
+   "code": "BTS-MSE2",
+   "libelle": "BTS MSE2",
+   "prefixe_id": "MSE2",
+   "salle_principale": "B006",
+   "depot": "presence-bts-mse2"
+  },
+  {
+   "departement": "GE",
+   "code": "DUT-AII2",
+   "libelle": "DUT AII2",
+   "prefixe_id": "AII2",
+   "salle_principale": "A105",
+   "depot": "presence-dut-aii2"
+  },
+  {
+   "departement": "GE",
+   "code": "DUT-ELT2",
+   "libelle": "DUT ELT2",
+   "prefixe_id": "ELT2",
+   "salle_principale": "A107",
+   "depot": "presence-dut-elt2"
+  },
+  {
+   "departement": "GE",
+   "code": "DUT-GE1",
+   "libelle": "DUT GE1",
+   "prefixe_id": "GE1",
+   "salle_principale": "Salle de conférences",
+   "depot": "presence-dut-ge1"
+  },
+  {
+   "departement": "GI",
+   "code": "DUT-GI1",
+   "libelle": "DUT GI1",
+   "prefixe_id": "GI1",
+   "salle_principale": "Labo Informatique GI (Salle Multimédia)",
+   "depot": "presence-dut-gi1"
+  },
+  {
+   "departement": "GI",
+   "code": "DUT-GL2",
+   "libelle": "DUT GL2",
+   "prefixe_id": "GL2",
+   "salle_principale": "A110",
+   "depot": "presence-dut-gl2"
+  },
+  {
+   "departement": "GI",
+   "code": "DUT-ISIR2",
+   "libelle": "DUT ISIR2",
+   "prefixe_id": "ISIR2",
+   "salle_principale": "A109",
+   "depot": "presence-dut-isir2"
+  },
+  {
+   "departement": "GMP",
+   "code": "BTS-CHS1",
+   "libelle": "BTS CHS1",
+   "prefixe_id": "CHS1",
+   "salle_principale": "B110",
+   "depot": "presence-bts-chs1"
+  },
+  {
+   "departement": "GMP",
+   "code": "DUT-CPM1",
+   "libelle": "DUT CPM1",
+   "prefixe_id": "CPM1",
+   "salle_principale": "A007",
+   "depot": "presence-dut-cpm1"
+  },
+  {
+   "departement": "GMP",
+   "code": "DUT-MIP1",
+   "libelle": "DUT MIP1",
+   "prefixe_id": "MIP1",
+   "salle_principale": "B002",
+   "depot": "presence-dut-mip1"
+  },
+  {
+   "departement": "GMP",
+   "code": "DUT-MIP2",
+   "libelle": "DUT MIP2",
+   "prefixe_id": "MIP2",
+   "salle_principale": "B007",
+   "depot": "presence-dut-mip2"
+  },
+  {
+   "departement": "GMP",
+   "code": "DUT-MKA1",
+   "libelle": "DUT MKA1",
+   "prefixe_id": "MKA1",
+   "salle_principale": "A108",
+   "depot": "presence-dut-mka1"
+  },
+  {
+   "departement": "GMP",
+   "code": "DUT-MKA2",
+   "libelle": "DUT MKA2",
+   "prefixe_id": "MKA2",
+   "salle_principale": "Salle 1",
+   "depot": "presence-dut-mka2"
+  },
+  {
+   "departement": "GTEE",
+   "code": "BTS-FRC1",
+   "libelle": "BTS FRC1",
+   "prefixe_id": "FRC1",
+   "salle_principale": "B108",
+   "depot": "presence-bts-frc1"
+  },
+  {
+   "departement": "GTEE",
+   "code": "BTS-FRC2",
+   "libelle": "BTS FRC2",
+   "prefixe_id": "FRC2",
+   "salle_principale": "B001",
+   "depot": "presence-bts-frc2"
+  },
+  {
+   "departement": "GTEE",
+   "code": "DUT-GTEE1",
+   "libelle": "DUT GTEE1",
+   "prefixe_id": "GTEE1",
+   "salle_principale": "B113",
+   "depot": "presence-dut-gtee1"
+  },
+  {
+   "departement": "GTEE",
+   "code": "DUT-GTEE2",
+   "libelle": "DUT GTEE2",
+   "prefixe_id": "GTEE2",
+   "salle_principale": "A006",
+   "depot": "presence-dut-gtee2"
+  },
+  {
+   "departement": "GTR",
+   "code": "BTS-RS1",
+   "libelle": "BTS RS1",
+   "prefixe_id": "RS1",
+   "salle_principale": "B109",
+   "depot": "presence-bts-rs1"
+  },
+  {
+   "departement": "GTR",
+   "code": "BTS-RS2",
+   "libelle": "BTS RS2",
+   "prefixe_id": "RS2",
+   "salle_principale": "A104",
+   "depot": "presence-bts-rs2"
+  },
+  {
+   "departement": "GTR",
+   "code": "DUT-GTR1",
+   "libelle": "DUT GTR1",
+   "prefixe_id": "GTR1",
+   "salle_principale": "B005",
+   "depot": "presence-dut-gtr1"
+  },
+  {
+   "departement": "GTR",
+   "code": "DUT-GTR2",
+   "libelle": "DUT GTR2",
+   "prefixe_id": "GTR2",
+   "salle_principale": "A106",
+   "depot": "presence-dut-gtr2"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-CGE1",
+   "libelle": "BTS CGE1",
+   "prefixe_id": "CGE1",
+   "salle_principale": "B106",
+   "depot": "presence-bts-cge1"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-CGE2",
+   "libelle": "BTS CGE2",
+   "prefixe_id": "CGE2",
+   "salle_principale": "B112",
+   "depot": "presence-bts-cge2"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-GMH1",
+   "libelle": "BTS GMH1",
+   "prefixe_id": "GMH1",
+   "salle_principale": "B115 Labo Informatique TCGCF",
+   "depot": "presence-bts-gmh1"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-GMH2",
+   "libelle": "BTS GMH2",
+   "prefixe_id": "GMH2",
+   "salle_principale": "B115 Labo Informatique TCGCF",
+   "depot": "presence-bts-gmh2"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-MCV",
+   "libelle": "BTS MCV",
+   "prefixe_id": "MCV",
+   "salle_principale": "B107",
+   "depot": "presence-bts-mcv"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-BF1",
+   "libelle": "BTS BF1",
+   "prefixe_id": "BF1",
+   "salle_principale": "B107",
+   "depot": "presence-bts-bf1"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-MCV2",
+   "libelle": "BTS MCV2",
+   "prefixe_id": "MCV2",
+   "salle_principale": "B111",
+   "depot": "presence-bts-mcv2"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "BTS-BF2",
+   "libelle": "BTS BF2",
+   "prefixe_id": "BF2",
+   "salle_principale": "B111",
+   "depot": "presence-bts-bf2"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "DUT-GEA1",
+   "libelle": "DUT GEA1",
+   "prefixe_id": "GEA1",
+   "salle_principale": "Salle de dessin",
+   "depot": "presence-dut-gea1"
+  },
+  {
+   "departement": "TCGCF",
+   "code": "DUT-GEA2",
+   "libelle": "DUT GEA2",
+   "prefixe_id": "GEA2",
+   "salle_principale": "B105",
+   "depot": "presence-dut-gea2"
+  },
+  {
+   "departement": "GC",
+   "code": "LIC-BAT",
+   "libelle": "Licence GC – Bâtiment",
+   "prefixe_id": "LBAT",
+   "salle_principale": "",
+   "depot": "presence-lic-bat"
+  },
+  {
+   "departement": "GC",
+   "code": "LIC-TPU",
+   "libelle": "Licence GC – Travaux Publics",
+   "prefixe_id": "LTPU",
+   "salle_principale": "",
+   "depot": "presence-lic-tpu"
+  }
+ ]
+}

@@ -1,0 +1,52 @@
+name: Fiche de présence hebdomadaire
+
+on:
+  # Une fois par jour à 19 h (heure du Cameroun) pour rester dans le quota gratuit de GitHub Actions
+  # avec un dépôt par filière. Pour une mise à jour immédiate : onglet Actions > Run workflow.
+  push:
+    paths: ["classes/**/etudiants.csv"]
+  schedule:
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+    inputs:
+      semaine:
+        description: "Une date de la semaine voulue (AAAA-MM-JJ). Vide = semaine en cours."
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fiche
+  cancel-in-progress: false
+
+jobs:
+  generer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --no-save docx@9.9.0
+      - name: Générer les fiches
+        env:
+          SEMAINE: ${{ github.event.inputs.semaine }}
+        run: |
+          if [ -n "$SEMAINE" ]; then
+            node scripts/generer_fiche.js --semaine "$SEMAINE"
+          else
+            node scripts/generer_fiche.js
+            node scripts/generer_fiche.js --decalage -1
+          fi
+      - name: Consolider les statistiques
+        run: node scripts/consolider.js
+      - name: Enregistrer les fiches dans le dépôt
+        run: |
+          git config user.name "Fiche de présence (automatique)"
+          git config user.email "actions@users.noreply.github.com"
+          git add fiches stats
+          git diff --cached --quiet && exit 0
+          git commit -m "Mise à jour des fiches de présence"
+          git pull --rebase
+          git push

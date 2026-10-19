@@ -1,0 +1,42 @@
+name: Cartes QR
+
+on:
+  push:
+    paths: ["classes/**/etudiants.csv", "enseignants/enseignants.csv"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cartes
+  cancel-in-progress: false
+
+jobs:
+  cartes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install qrcode reportlab pillow
+      - name: Générer les cartes de chaque classe et des enseignants
+        run: |
+          for d in classes/*/; do
+            c=$(basename "$d")
+            [ -s "$d/etudiants.csv" ] || continue
+            [ $(wc -l < "$d/etudiants.csv") -gt 1 ] || continue
+            python3 scripts/generer_cartes.py "$c"
+            [ -f "$d/Cartes_QR_${c}_reserve.pdf" ] || python3 scripts/generer_cartes.py "$c" --reserve 20 --debut 901
+          done
+          if [ -f enseignants/enseignants.csv ]; then python3 scripts/generer_cartes.py --enseignants; fi
+      - name: Enregistrer les cartes dans le dépôt
+        run: |
+          git config user.name "Cartes QR (automatique)"
+          git config user.email "actions@users.noreply.github.com"
+          git add classes enseignants
+          git diff --cached --quiet && exit 0
+          git commit -m "Mise à jour des cartes QR"
+          git pull --rebase
+          git push

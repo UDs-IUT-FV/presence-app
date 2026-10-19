@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f3864">
-<title>Présence – Génie Civil</title>
+<title>Présence – IUT-FV</title>
 <style>
   :root { --bleu:#1f3864; --fond:#f3f4f6; --carte:#fff; --texte:#111827; --gris:#6b7280; --trait:#d1d5db;
           --vert:#15803d; --orange:#b45309; --rouge:#b91c1c; }
@@ -47,7 +47,7 @@
 </head>
 <body>
 <header>
-  <h1 id="titre">Présence – Génie Civil</h1>
+  <h1 id="titre">Présence – IUT-FV</h1>
   <button id="btn-reglages" class="cache">Réglages</button>
 </header>
 <main>
@@ -58,16 +58,14 @@
     <h2>Réglages de ce téléphone</h2>
     <label for="cfg-compte">Compte GitHub du département</label>
     <input id="cfg-compte" autocapitalize="none" autocomplete="off" placeholder="ex. gc-iutfv">
-    <label for="cfg-depot">Dépôt des données (privé)</label>
-    <input id="cfg-depot" autocapitalize="none" autocomplete="off" value="presence-donnees">
     <label for="cfg-jeton">Jeton d'accès</label>
     <input id="cfg-jeton" type="password" autocapitalize="none" autocomplete="off" placeholder="github_pat_…">
     <label for="cfg-scanneur">Votre nom (délégué ou adjoint)</label>
     <input id="cfg-scanneur" autocomplete="off">
-    <button class="principal" id="btn-enregistrer">Enregistrer et charger les classes</button>
+    <button class="principal" id="btn-enregistrer">Enregistrer et charger mes filières</button>
     <button class="second cache" id="btn-annuler-reglages">Retour</button>
     <div id="msg-reglages"></div>
-    <p class="aide">Le jeton est remis par le département. Il reste enregistré sur ce téléphone uniquement. En cas de perte du téléphone, prévenez le département pour qu'il le révoque.</p>
+    <p class="aide">Le jeton est remis par le département. Il ne donne accès qu'aux filières dont vous avez la charge. Il reste enregistré sur ce téléphone uniquement. En cas de perte du téléphone, prévenez le département pour qu'il le révoque.</p>
   </div>
 </section>
 
@@ -75,7 +73,8 @@
 <section id="ecran-accueil" class="cache">
   <div class="bloc">
     <h2>Nouvelle séance</h2>
-    <label for="s-classe">Classe</label>
+    <div id="bloc-dep" class="cache"><label for="s-dep">Département</label><select id="s-dep"></select></div>
+    <label for="s-classe">Filière</label>
     <select id="s-classe"></select>
     <div class="ligne">
       <div><label for="s-date">Date</label><input id="s-date" type="date"></div>
@@ -109,7 +108,7 @@
     <h2>Séances enregistrées sur ce téléphone</h2>
     <div id="liste-seances"></div>
     <button class="second" id="btn-tout-envoyer">Envoyer les séances en attente</button>
-    <button class="second" id="btn-maj-listes">Mettre à jour les listes d'étudiants</button>
+    <button class="second" id="btn-maj-listes">Mettre à jour les filières et les listes</button>
     <div id="msg-envoi"></div>
   </div>
 </section>
@@ -144,13 +143,15 @@ let cfg = lire("presence.cfg", null);
 let enseignants = lire("presence.enseignants", []); // [{id, nom}]
 let classes = lire("presence.classes", {});   // { "DUT-GC1": [{id, matricule, nom, statut, td, tp}] }
 let salles = lire("presence.salles", []);     // [{salle, batiment, type}]
+let catalogue = lire("presence.catalogue", null); // filieres.json : départements et filières
+let infoClasse = lire("presence.infoClasse", {}); // { code: {depot, departement, libelle, salle_principale} }
 let seances = lire("presence.seances", []);   // [{cle, classe, date, creneau, ue, salle, scanneur, scans:[{id,heure,mode}], envoye}]
 let seance = null;                            // séance en cours de scan
 
 // ---------- GitHub ----------
-async function gh(chemin, options = {}) {
-  const url = "https://api.github.com/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(cfg.depot) + "/contents/" +
-    chemin.split("/").map(encodeURIComponent).join("/");
+async function gh(chemin, options = {}, depot) {
+  const url = "https://api.github.com/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(depot || cfg.depot || "presence-donnees") +
+    (chemin == null ? "" : "/contents/" + chemin.split("/").map(encodeURIComponent).join("/"));
   const rep = await fetch(url, {
     method: options.method || "GET",
     cache: "no-store",
@@ -166,7 +167,7 @@ async function gh(chemin, options = {}) {
 function expliquer(rep) {
   if (rep.status === 401) return "Jeton refusé (401) : il est erroné, expiré ou révoqué.";
   if (rep.status === 403) return "Accès refusé (403) : le jeton n'a pas le droit « Contents : Read and write » sur ce dépôt.";
-  if (rep.status === 404) return "Introuvable (404) : vérifiez le nom du compte et du dépôt, et que le jeton donne accès à ce dépôt.";
+  if (rep.status === 404) return "Introuvable (404) : vérifiez le nom du compte, et que le jeton donne accès au dépôt de cette filière.";
   return "Erreur GitHub " + rep.status + ".";
 }
 function analyserCsv(texte) {
@@ -193,34 +194,56 @@ function analyserCsv(texte) {
 }
 const csvChamp = (v) => { v = String(v == null ? "" : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
 
+async function chargerCatalogue() {
+  try {
+    const r = await fetch("filieres.json", { cache: "no-store" });
+    if (r.ok) { catalogue = await r.json(); ecrire("presence.catalogue", catalogue); }
+  } catch (e) {}
+  if (!catalogue) throw new Error("Catalogue des filières introuvable (filieres.json).");
+}
+async function parLots(elements, taille, fn) {
+  const res = [];
+  for (let i = 0; i < elements.length; i += taille) res.push(...await Promise.all(elements.slice(i, i + taille).map(fn)));
+  return res;
+}
 async function chargerClasses() {
-  const rep = await gh("classes");
-  if (!rep.ok) throw new Error(expliquer(rep));
-  const dossiers = (await rep.json()).filter((e) => e.type === "dir").map((e) => e.name);
-  if (!dossiers.length) throw new Error("Aucune classe trouvée dans le dossier « classes » du dépôt.");
-  const resultat = {};
-  for (const nom of dossiers) {
-    const r = await gh("classes/" + nom + "/etudiants.csv", { brut: true });
-    if (!r.ok) continue;
-    resultat[nom] = analyserCsv(await r.text())
+  await chargerCatalogue();
+  const depots = [...new Set(catalogue.filieres.map((f) => f.depot))];
+  // Le jeton ne voit que les dépôts des filières qui lui ont été attribuées
+  const acces = await parLots(depots, 8, async (d) => {
+    const r = await gh(null, {}, d);
+    if (r.status === 401) throw new Error(expliquer(r));
+    return r.ok ? d : null;
+  });
+  const autorises = new Set(acces.filter(Boolean));
+  if (!autorises.size) throw new Error("Ce jeton ne donne accès à aucune filière. Vérifiez le nom du compte et les dépôts choisis lors de la création du jeton.");
+  const resultat = {}, infos = {};
+  await parLots(catalogue.filieres.filter((f) => autorises.has(f.depot)), 8, async (f) => {
+    const r = await gh("classes/" + f.code + "/etudiants.csv", { brut: true }, f.depot);
+    if (!r.ok) return;
+    resultat[f.code] = analyserCsv(await r.text())
       .filter((e) => e.id)
       .map((e) => ({ id: e.id.toUpperCase(), matricule: e.matricule || "", nom: e.noms_prenoms || "", statut: (e.statut || "").toLowerCase(),
                      td: (e.groupe_td || "").toUpperCase(), tp: (e.groupe_tp || "").toUpperCase() }));
-  }
-  if (!Object.keys(resultat).length) throw new Error("Aucun fichier etudiants.csv lisible dans le dépôt.");
-  classes = resultat;
-  ecrire("presence.classes", classes);
-  const re = await gh("enseignants/enseignants.csv", { brut: true });
+    infos[f.code] = { depot: f.depot, departement: f.departement, libelle: f.libelle, salle_principale: f.salle_principale || "" };
+  });
+  if (!Object.keys(resultat).length) throw new Error("Les dépôts de vos filières ne contiennent pas encore de liste d'étudiants.");
+  classes = resultat; infoClasse = infos;
+  ecrire("presence.classes", classes); ecrire("presence.infoClasse", infoClasse);
+  const depotCommun = [...autorises][0];
+  const re = await gh("enseignants/enseignants.csv", { brut: true }, depotCommun);
   if (re.ok) {
     enseignants = analyserCsv(await re.text()).filter((e) => e.id).map((e) => ({ id: e.id.toUpperCase(), nom: e.noms_prenoms || "" }));
     ecrire("presence.enseignants", enseignants);
   }
-  const rs = await gh("salles.csv", { brut: true });
+  const rs = await gh("salles.csv", { brut: true }, depotCommun);
   if (rs.ok) {
     salles = analyserCsv(await rs.text()).filter((x) => x.salle);
     ecrire("presence.salles", salles);
   }
 }
+const depotDe = (s) => s.depot || (infoClasse[s.classe] || {}).depot || cfg.depot || "presence-donnees";
+const libelleClasse = (c) => (infoClasse[c] || {}).libelle || c;
 
 // ---------- Groupes et salles ----------
 const NATURES = { CM: "CM", TD: "TD", TP: "TP" };
@@ -259,7 +282,9 @@ function remplirGroupes() {
 }
 function remplirSalles(changementNature) {
   const sel = $("s-salle-choix"), nature = $("s-nature").value;
-  const memo = lire("presence.salle." + nature, nature === "TP" ? "Labo de Matériaux" : "Atelier GC");
+  const classe = $("s-classe").value, sp = (infoClasse[classe] || {}).salle_principale || "";
+  const defaut = nature === "TP" ? "Labo de Matériaux" : (salles.some((x) => x.salle === sp) ? sp : "Atelier GC");
+  const memo = lire("presence.salle." + classe + "." + nature, defaut);
   const avant = changementNature || !sel.value ? memo : sel.value;
   sel.innerHTML = "";
   const types = [["labo", "Laboratoires"], ["atelier", "Ateliers et amphis"], ["amphi", ""], ["salle", "Salles de cours"]];
@@ -296,7 +321,6 @@ const message = (id, texte, type) => { $(id).className = type || ""; $(id).textC
 // ---------- Réglages ----------
 function ouvrirReglages() {
   $("cfg-compte").value = cfg ? cfg.compte : "";
-  $("cfg-depot").value = cfg ? cfg.depot : "presence-donnees";
   $("cfg-jeton").value = cfg ? cfg.jeton : "";
   $("cfg-scanneur").value = cfg ? cfg.scanneur : "";
   $("btn-annuler-reglages").classList.toggle("cache", !cfg || !Object.keys(classes).length);
@@ -307,12 +331,12 @@ $("btn-reglages").onclick = ouvrirReglages;
 $("btn-annuler-reglages").onclick = ouvrirAccueil;
 $("btn-enregistrer").onclick = async () => {
   const nouveau = {
-    compte: $("cfg-compte").value.trim(), depot: $("cfg-depot").value.trim(),
+    compte: $("cfg-compte").value.trim(),
     jeton: $("cfg-jeton").value.trim(), scanneur: $("cfg-scanneur").value.trim(),
   };
-  if (!nouveau.compte || !nouveau.depot || !nouveau.jeton || !nouveau.scanneur) return message("msg-reglages", "Tous les champs sont obligatoires.", "erreur");
+  if (!nouveau.compte || !nouveau.jeton || !nouveau.scanneur) return message("msg-reglages", "Tous les champs sont obligatoires.", "erreur");
   const ancien = cfg; cfg = nouveau;
-  $("btn-enregistrer").disabled = true; message("msg-reglages", "Connexion à GitHub…");
+  $("btn-enregistrer").disabled = true; message("msg-reglages", "Recherche des filières accessibles…");
   try {
     await chargerClasses();
     ecrire("presence.cfg", cfg);
@@ -331,13 +355,28 @@ function creneauActuel() {
   const d = new Date(), m = d.getHours() * 60 + d.getMinutes();
   if (m < 9 * 60 + 35) return 1; if (m < 11 * 60 + 45) return 2; if (m < 14 * 60 + 35) return 3; if (m < 16 * 60 + 45) return 4; return 5;
 }
-function ouvrirAccueil() {
-  const sel = $("s-classe"), avant = sel.value || lire("presence.derniereClasse", "");
+function remplirDepartements() {
+  const sel = $("s-dep"), avant = sel.value || lire("presence.dernierDep", "");
+  const deps = [...new Set(Object.keys(classes).map((c) => (infoClasse[c] || {}).departement || ""))].filter(Boolean).sort();
   sel.innerHTML = "";
-  for (const nom of Object.keys(classes).sort()) {
-    const o = document.createElement("option"); o.value = nom; o.textContent = nom + " (" + classes[nom].length + " étudiants)"; sel.appendChild(o);
+  for (const d of deps) {
+    const nom = ((catalogue && catalogue.departements || []).find((x) => x.code === d) || {}).nom || d;
+    const o = document.createElement("option"); o.value = d; const court = nom.replace(/^Département (de |d'|du )?/, ""); o.textContent = d + (court && court !== d ? " · " + court : ""); sel.appendChild(o);
   }
-  if (classes[avant]) sel.value = avant;
+  $("bloc-dep").classList.toggle("cache", deps.length < 2);
+  if (deps.includes(avant)) sel.value = avant;
+}
+function remplirClasses() {
+  const sel = $("s-classe"), avant = sel.value || lire("presence.derniereClasse", ""), dep = $("s-dep").value;
+  sel.innerHTML = "";
+  const liste = Object.keys(classes).filter((c) => !dep || (infoClasse[c] || {}).departement === dep || !(infoClasse[c] || {}).departement);
+  for (const nom of liste.sort((a, b) => libelleClasse(a).localeCompare(libelleClasse(b)))) {
+    const o = document.createElement("option"); o.value = nom; o.textContent = libelleClasse(nom) + " (" + classes[nom].length + " étudiants)"; sel.appendChild(o);
+  }
+  if (classes[avant] && liste.includes(avant)) sel.value = avant;
+}
+function ouvrirAccueil() {
+  remplirDepartements(); remplirClasses();
   $("s-date").value = dateLocale(new Date()); derniereOuverture = $("s-date").value;
   $("s-creneau").value = creneauActuel();
   remplirGroupes(); remplirSalles();
@@ -351,7 +390,7 @@ function dessinerSeances() {
   for (const s of seances.slice().reverse()) {
     const div = document.createElement("div"); div.className = "seance";
     const infos = document.createElement("div"); infos.className = "infos";
-    const t = document.createElement("div"); t.className = "titre"; t.textContent = s.classe + " · " + s.date + " · créneau " + s.creneau + " · " + libelleSeance(s);
+    const t = document.createElement("div"); t.className = "titre"; t.textContent = libelleClasse(s.classe) + " · " + s.date + " · créneau " + s.creneau + " · " + libelleSeance(s);
     const d = document.createElement("div"); d.className = "detail"; d.textContent = s.scans.length + " présent(s)" + (s.ue ? " · " + s.ue : "") + (s.salle ? " · " + s.salle : "");
     infos.append(t, d);
     const etat = document.createElement("span"); etat.className = "etat " + (s.envoye ? "envoye" : "attente"); etat.textContent = s.envoye ? "Envoyée" : "En attente";
@@ -375,15 +414,15 @@ $("btn-demarrer").onclick = () => {
     ") n'est pas celle d'aujourd'hui (" + dateLocale(new Date()).split("-").reverse().join("/") + "). Continuer avec cette date ?")) {
     $("s-date").value = dateLocale(new Date()); return;
   }
-  ecrire("presence.derniereClasse", classe);
-  ecrire("presence.salle." + nature, $("s-salle-choix").value === "__autre" ? salle : $("s-salle-choix").value);
+  ecrire("presence.derniereClasse", classe); ecrire("presence.dernierDep", $("s-dep").value);
+  ecrire("presence.salle." + classe + "." + nature, $("s-salle-choix").value === "__autre" ? salle : $("s-salle-choix").value);
   let s = seances.find((x) => x.classe === classe && x.date === date && x.creneau === creneau &&
                                (x.nature || "CM") === nature && (x.groupe || "") === groupe);
   if (!s) {
     const h = new Date();
     s = { cle: "C" + creneau + "_" + nature + (groupe ? "-" + slug(groupe) : "") + "_" + slug(cfg.scanneur) + "_" +
                deuxChiffres(h.getHours()) + deuxChiffres(h.getMinutes()) + deuxChiffres(h.getSeconds()),
-          classe, date, creneau, nature, groupe, ue: $("s-ue").value.trim(), salle, scanneur: cfg.scanneur, scans: [], envoye: false };
+          classe, depot: depotDe({ classe }), date, creneau, nature, groupe, ue: $("s-ue").value.trim(), salle, scanneur: cfg.scanneur, scans: [], envoye: false };
     seances.push(s);
     if (seances.length > 60) seances = seances.filter((x, i) => !x.envoye || i >= seances.length - 60);
     ecrire("presence.seances", seances);
@@ -393,7 +432,8 @@ $("btn-demarrer").onclick = () => {
   }
   demarrerScan(s);
 };
-$("s-classe").onchange = () => remplirGroupes();
+$("s-dep").onchange = () => { remplirClasses(); remplirGroupes(); remplirSalles(true); };
+$("s-classe").onchange = () => { remplirGroupes(); remplirSalles(true); };
 $("s-nature").onchange = () => { remplirGroupes(); remplirSalles(true); };
 $("s-salle-choix").onchange = majChampSalle;
 $("btn-maj-listes").onclick = async () => {
@@ -418,13 +458,13 @@ function base64Utf8(texte) {
 async function envoyer(s) {
   const chemin = "scans/" + s.classe + "/" + s.date + "/" + s.cle + ".csv";
   let sha;
-  const existant = await gh(chemin);
+  const existant = await gh(chemin, {}, depotDe(s));
   if (existant.ok) sha = (await existant.json()).sha;
   else if (existant.status !== 404) throw new Error(expliquer(existant));
   const rep = await gh(chemin, { method: "PUT", body: {
     message: "Présence " + s.classe + " " + s.date + " créneau " + s.creneau + " " + libelleSeance(s) + " (" + s.scans.length + " présents) – " + s.scanneur,
     content: base64Utf8(contenuCsv(s)), sha,
-  } });
+  } }, depotDe(s));
   if (!rep.ok) throw new Error(expliquer(rep));
   s.envoye = true; ecrire("presence.seances", seances);
 }
@@ -541,7 +581,7 @@ function analyser() {
 }
 async function demarrerScan(s) {
   seance = s; dernierCode = "";
-  $("titre").textContent = s.classe + " · C" + s.creneau + " · " + libelleSeance(s);
+  $("titre").textContent = libelleClasse(s.classe) + " · C" + s.creneau + " · " + libelleSeance(s);
   $("retour").className = ""; $("retour").textContent = "Présentez une carte devant la caméra";
   $("recherche").value = ""; $("resultats").innerHTML = ""; message("msg-scan", "");
   majCompteur(); afficher("scan");
@@ -576,7 +616,7 @@ $("btn-terminer").onclick = async () => {
   await envoyerEnAttente("msg-envoi");
   $("btn-terminer").disabled = false;
   const msg = $("msg-envoi").textContent, type = $("msg-envoi").className;
-  $("titre").textContent = "Présence – Génie Civil";
+  $("titre").textContent = "Présence – IUT-FV";
   ouvrirAccueil(); message("msg-envoi", msg, type);
 };
 // Date et créneau remis à jour quand la page revient au premier plan (page restée ouverte plusieurs jours)
@@ -599,6 +639,10 @@ window.addEventListener("online", () => { if ($("ecran-accueil").classList.conta
 
 // ---------- Démarrage ----------
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Migration : anciens téléphones configurés avec un seul dépôt, sans catalogue
+if (cfg && Object.keys(classes).length && !Object.keys(infoClasse).length) {
+  for (const c of Object.keys(classes)) infoClasse[c] = { depot: cfg.depot || "presence-donnees", departement: "", libelle: c, salle_principale: "" };
+}
 if (cfg && Object.keys(classes).length) ouvrirAccueil(); else ouvrirReglages();
 </script>
 </body>

@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Administration – Présence IUT-FV</title>
+<style>
+  :root { --bleu:#1f3864; --fond:#f3f4f6; --carte:#fff; --texte:#111827; --gris:#6b7280; --trait:#d1d5db;
+          --vert:#15803d; --orange:#b45309; --rouge:#b91c1c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--fond); color:var(--texte); font-size:15px; }
+  header { background:var(--bleu); color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:18px; font-weight:600; }
+  header a { color:#fff; font-size:14px; }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+  .bloc { background:var(--carte); border:1px solid var(--trait); border-radius:10px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  h3 { font-size:15px; margin:18px 0 8px; }
+  label { display:block; font-size:13px; color:var(--gris); margin:10px 0 4px; }
+  input, select { padding:9px; font-size:15px; border:1px solid var(--trait); border-radius:8px; background:#fff; color:var(--texte); width:100%; }
+  .ligne { display:flex; gap:12px; flex-wrap:wrap; } .ligne > div { flex:1; min-width:200px; }
+  button { padding:8px 12px; font-size:14px; border-radius:7px; border:1px solid var(--bleu); background:#fff; color:var(--bleu); cursor:pointer; }
+  button.principal { background:var(--bleu); color:#fff; font-weight:600; padding:10px 16px; }
+  button:disabled { opacity:.45; cursor:default; }
+  .aide { font-size:13px; color:var(--gris); line-height:1.45; margin:8px 0 0; }
+  .erreur { color:var(--rouge); white-space:pre-wrap; font-size:14px; margin-top:8px; }
+  .ok { color:var(--vert); font-size:14px; margin-top:8px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--trait); vertical-align:middle; }
+  th { font-size:12px; color:var(--gris); font-weight:600; text-transform:uppercase; letter-spacing:.02em; }
+  td.actions { white-space:nowrap; text-align:right; } td.actions button { margin-left:4px; }
+  .etat { font-size:12px; padding:2px 8px; border-radius:99px; white-space:nowrap; }
+  .etat.oui { background:#dcfce7; color:#166534; } .etat.non { background:#f3f4f6; color:#4b5563; } .etat.vide { background:#fef3c7; color:#92400e; }
+  .dep td { background:#eef2f7; font-weight:600; color:var(--bleu); }
+  #journal { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; background:#111827; color:#e5e7eb; border-radius:8px; padding:10px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+  .cache { display:none !important; }
+  dialog { border:1px solid var(--trait); border-radius:12px; padding:0; width:min(760px, 96vw); }
+  dialog .contenu { padding:18px; }
+  dialog .pied { padding:12px 18px; border-top:1px solid var(--trait); display:flex; justify-content:flex-end; gap:8px; }
+  .apercu { max-height:280px; overflow:auto; border:1px solid var(--trait); border-radius:8px; margin-top:10px; }
+  .apercu td, .apercu th { padding:4px 8px; font-size:13px; }
+  .table-scroll { overflow-x:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Présence par QR code · Administration</h1>
+  <nav><a href="index.html">Application de scan</a> · <a href="statistiques.html">Statistiques</a></nav>
+</header>
+<main>
+
+<section class="bloc" id="bloc-connexion">
+  <h2>1. Connexion</h2>
+  <div class="ligne">
+    <div><label for="a-compte">Compte GitHub de l'IUT</label><input id="a-compte" autocapitalize="none" autocomplete="off" placeholder="UDs-IUT-FV"></div>
+    <div><label for="a-jeton">Jeton d'administration</label><input id="a-jeton" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+  </div>
+  <p class="aide">Ce jeton est distinct de ceux des délégués. Créez-le avec l'accès à <b>All repositories</b> et les permissions
+    <b>Administration</b>, <b>Contents</b> et <b>Workflows</b> en <i>Read and write</i>. Il n'est enregistré nulle part : il faut le saisir à chaque visite.</p>
+  <p style="margin-top:12px"><button class="principal" id="btn-connexion">Se connecter</button></p>
+  <div id="msg-connexion"></div>
+</section>
+
+<section class="bloc cache" id="bloc-filieres">
+  <h2>2. Filières</h2>
+  <div class="ligne" style="align-items:flex-end">
+    <div style="max-width:260px"><label for="f-dep">Département</label><select id="f-dep"></select></div>
+    <div style="flex:2">
+      <button id="btn-creer-tout">Créer les dépôts manquants du département</button>
+      <button id="btn-actualiser">Actualiser</button>
+    </div>
+  </div>
+  <div class="table-scroll" style="margin-top:12px">
+    <table>
+      <thead><tr><th>Filière</th><th>Dépôt</th><th>État</th><th>Étudiants</th><th></th></tr></thead>
+      <tbody id="t-filieres"></tbody>
+    </table>
+  </div>
+  <p class="aide">Un dépôt privé par filière. Les cartes QR sont générées automatiquement par GitHub deux à trois minutes après l'import d'une liste :
+    elles se trouvent dans le dépôt, dossier <code>classes/&lt;filière&gt;/</code>.</p>
+</section>
+
+<section class="bloc cache" id="bloc-commun">
+  <h2>3. Données communes à toutes les filières</h2>
+  <p class="aide" style="margin-top:0">La liste des enseignants et la liste des salles sont tenues dans le dépôt de référence
+    (<b id="nom-reference">presence-donnees</b>) puis recopiées dans tous les dépôts de filière.</p>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+    <button id="btn-import-ens">Importer une liste d'enseignants…</button>
+    <button id="btn-diffuser">Diffuser enseignants et salles vers toutes les filières</button>
+    <button id="btn-scripts">Mettre à jour les scripts de tous les dépôts</button>
+  </div>
+</section>
+
+<section class="bloc cache" id="bloc-journal">
+  <h2>Journal</h2>
+  <div id="journal"></div>
+</section>
+
+</main>
+
+<dialog id="dlg-import">
+  <div class="contenu">
+    <h2 id="imp-titre">Importer une liste</h2>
+    <p class="aide" id="imp-aide" style="margin-top:0"></p>
+    <label for="imp-fichier">Fichier Excel (.xlsx, .xls) ou CSV</label>
+    <input id="imp-fichier" type="file" accept=".xlsx,.xls,.csv">
+    <div id="bloc-feuille" class="cache"><label for="imp-feuille">Feuille du classeur à importer</label><select id="imp-feuille"></select></div>
+    <div id="imp-resume"></div>
+    <div class="apercu cache" id="imp-apercu"></div>
+  </div>
+  <div class="pied">
+    <button id="imp-annuler">Annuler</button>
+    <button class="principal" id="imp-valider" disabled>Enregistrer dans le dépôt</button>
+  </div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let cfg = null, catalogue = null, typeCompte = "User", etat = {}; // etat[code] = { existe, nb }
+const FICHIERS_MODELE = [ // [chemin dans le site, chemin dans le dépôt, binaire]
+  ["modele/scripts/generer_fiche.js", "scripts/generer_fiche.js"],
+  ["modele/scripts/consolider.js", "scripts/consolider.js"],
+  ["modele/scripts/generer_cartes.py", "scripts/generer_cartes.py"],
+  ["modele/scripts/logo.png", "scripts/logo.png", true],
+  ["modele/workflows/fiche.yml", ".github/workflows/fiche.yml"],
+  ["modele/workflows/cartes.yml", ".github/workflows/cartes.yml"],
+  ["modele/README.md", "README.md", false, true],     // copiés à la création seulement
+  ["modele/gitignore.txt", ".gitignore", false, true],
+];
+
+// ---------- Outils ----------
+function journal(texte, type) {
+  $("bloc-journal").classList.remove("cache");
+  const j = $("journal"), ligne = document.createElement("div");
+  ligne.textContent = new Date().toLocaleTimeString("fr-FR") + "  " + texte;
+  if (type === "erreur") ligne.style.color = "#fca5a5"; if (type === "ok") ligne.style.color = "#86efac";
+  j.appendChild(ligne); j.scrollTop = j.scrollHeight;
+}
+const message = (id, texte, type) => { $(id).className = type || ""; $(id).textContent = texte || ""; };
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const sansAccent = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+const cleNom = (t) => sansAccent(t).toUpperCase().replace(/[^A-Z ]/g, " ").replace(/\s+/g, " ").trim();
+const csvChamp = (v) => { v = String(v == null ? "" : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+function analyserCsv(texte) {
+  const lignes = []; let champ = "", ligne = [], g = false;
+  texte = texte.replace(/^﻿/, "");
+  for (let i = 0; i < texte.length; i++) {
+    const c = texte[i];
+    if (g) { if (c === '"' && texte[i + 1] === '"') { champ += '"'; i++; } else if (c === '"') g = false; else champ += c; }
+    else if (c === '"') g = true;
+    else if (c === ",") { ligne.push(champ); champ = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && texte[i + 1] === "\n") i++; ligne.push(champ); champ = ""; if (ligne.some((x) => x !== "")) lignes.push(ligne); ligne = []; }
+    else champ += c;
+  }
+  ligne.push(champ); if (ligne.some((x) => x !== "")) lignes.push(ligne);
+  if (!lignes.length) return [];
+  const ent = lignes.shift().map((h) => h.trim());
+  return lignes.map((l) => Object.fromEntries(ent.map((h, i) => [h, (l[i] || "").trim()])));
+}
+const versCsv = (colonnes, lignes) => [colonnes.join(","), ...lignes.map((l) => colonnes.map((c) => csvChamp(l[c])).join(","))].join("\n") + "\n";
+function base64Utf8(texte) {
+  const o = new TextEncoder().encode(texte); let b = "";
+  for (let i = 0; i < o.length; i += 0x8000) b += String.fromCharCode.apply(null, o.subarray(i, i + 0x8000));
+  return btoa(b);
+}
+function base64Octets(buf) {
+  const o = new Uint8Array(buf); let b = "";
+  for (let i = 0; i < o.length; i += 0x8000) b += String.fromCharCode.apply(null, o.subarray(i, i + 0x8000));
+  return btoa(b);
+}
+
+// ---------- API GitHub ----------
+async function api(chemin, options = {}) {
+  const rep = await fetch("https://api.github.com" + chemin, {
+    method: options.method || "GET", cache: "no-store",
+    headers: { Authorization: "Bearer " + cfg.jeton, Accept: options.brut ? "application/vnd.github.raw+json" : "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  return rep;
+}
+async function apiJson(chemin, options) {
+  const r = await api(chemin, options);
+  if (!r.ok) {
+    let detail = ""; try { detail = (await r.json()).message || ""; } catch (e) {}
+    const e = new Error(explication(r.status, detail)); e.status = r.status; throw e;
+  }
+  return r.status === 204 ? null : r.json();
+}
+function explication(status, detail) {
+  if (status === 401) return "Jeton refusé (401) : erroné, expiré ou révoqué.";
+  if (status === 403) return "Accès refusé (403) : il manque une permission au jeton (Administration, Contents ou Workflows en lecture et écriture). " + detail;
+  if (status === 404) return "Introuvable (404). " + detail;
+  if (status === 422) return "Requête refusée (422) : " + detail;
+  return "Erreur GitHub " + status + ". " + detail;
+}
+const repo = (depot) => "/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(depot);
+const cheminApi = (p) => p.split("/").map(encodeURIComponent).join("/");
+async function lireFichier(depot, chemin) {
+  const r = await api(repo(depot) + "/contents/" + cheminApi(chemin), { brut: true });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(explication(r.status, ""));
+  return r.text();
+}
+// Un seul commit pour plusieurs fichiers : [{chemin, texte} | {chemin, base64}]
+async function commit(depot, fichiers, messageCommit) {
+  let ref = null;
+  for (let essai = 0; essai < 6 && !ref; essai++) {
+    try { ref = await apiJson(repo(depot) + "/git/ref/heads/main"); }
+    catch (e) { if (e.status !== 404 && e.status !== 409) throw e; await pause(1500); }
+  }
+  if (!ref) throw new Error("La branche principale du dépôt " + depot + " est introuvable.");
+  const parent = await apiJson(repo(depot) + "/git/commits/" + ref.object.sha);
+  const arbre = [];
+  for (const f of fichiers) {
+    const blob = await apiJson(repo(depot) + "/git/blobs", { method: "POST", body: f.base64 != null ? { content: f.base64, encoding: "base64" } : { content: f.texte, encoding: "utf-8" } });
+    arbre.push({ path: f.chemin, mode: "100644", type: "blob", sha: blob.sha });
+  }
+  const tree = await apiJson(repo(depot) + "/git/trees", { method: "POST", body: { base_tree: parent.tree.sha, tree: arbre } });
+  const c = await apiJson(repo(depot) + "/git/commits", { method: "POST", body: { message: messageCommit, tree: tree.sha, parents: [ref.object.sha] } });
+  await apiJson(repo(depot) + "/git/refs/heads/main", { method: "PATCH", body: { sha: c.sha } });
+}
+
+// ---------- Connexion et état ----------
+$("btn-connexion").onclick = async () => {
+  cfg = { compte: $("a-compte").value.trim(), jeton: $("a-jeton").value.trim() };
+  if (!cfg.compte || !cfg.jeton) return message("msg-connexion", "Saisissez le compte et le jeton.", "erreur");
+  $("btn-connexion").disabled = true; message("msg-connexion", "Connexion…");
+  try {
+    const u = await apiJson("/users/" + encodeURIComponent(cfg.compte));
+    typeCompte = u.type;
+    const r = await fetch("filieres.json", { cache: "no-store" });
+    if (!r.ok) throw new Error("Catalogue filieres.json introuvable sur le site.");
+    catalogue = await r.json();
+    $("nom-reference").textContent = catalogue.depot_reference;
+    try { localStorage.setItem("admin.compte", cfg.compte); } catch (e) {}
+    remplirDepartements();
+    $("bloc-filieres").classList.remove("cache"); $("bloc-commun").classList.remove("cache");
+    message("msg-connexion", "Connecté au compte " + u.login + ".", "ok");
+    await actualiser();
+  } catch (e) { message("msg-connexion", e.message === "Failed to fetch" ? "Pas de connexion Internet." : e.message, "erreur"); }
+  $("btn-connexion").disabled = false;
+};
+try { $("a-compte").value = localStorage.getItem("admin.compte") || ""; } catch (e) {}
+
+function remplirDepartements() {
+  const sel = $("f-dep"); sel.innerHTML = "";
+  for (const d of catalogue.departements) {
+    const n = catalogue.filieres.filter((f) => f.departement === d.code).length;
+    const o = document.createElement("option"); o.value = d.code; o.textContent = d.code + " (" + n + " filières)"; sel.appendChild(o);
+  }
+}
+$("f-dep").onchange = () => actualiser();
+$("btn-actualiser").onclick = () => actualiser();
+const filieresDep = () => catalogue.filieres.filter((f) => f.departement === $("f-dep").value);
+async function actualiser() {
+  const liste = filieresDep();
+  dessiner(liste);
+  await Promise.all(liste.map(async (f) => {
+    const r = await api(repo(f.depot));
+    const existe = r.ok;
+    let nb = null;
+    if (existe) { const t = await lireFichier(f.depot, "classes/" + f.code + "/etudiants.csv"); nb = t ? analyserCsv(t).filter((e) => e.id).length : 0; }
+    etat[f.code] = { existe, nb };
+  }));
+  dessiner(liste);
+}
+function dessiner(liste) {
+  const tb = $("t-filieres"); tb.innerHTML = "";
+  for (const f of liste) {
+    const e = etat[f.code], tr = document.createElement("tr");
+    const td = (x) => { const c = document.createElement("td"); if (x instanceof Node) c.appendChild(x); else c.textContent = x; tr.appendChild(c); return c; };
+    td(f.libelle); td(f.depot);
+    const badge = document.createElement("span");
+    badge.className = "etat " + (!e ? "non" : !e.existe ? "non" : e.nb ? "oui" : "vide");
+    badge.textContent = !e ? "…" : !e.existe ? "Pas de dépôt" : e.nb ? "Prêt" : "Liste à importer";
+    td(badge); td(e && e.existe ? String(e.nb) : "–");
+    const a = td(""); a.className = "actions";
+    if (e && !e.existe) { const b = document.createElement("button"); b.textContent = "Créer le dépôt"; b.onclick = () => creerDepot(f).then(actualiser); a.appendChild(b); }
+    if (e && e.existe) {
+      const b = document.createElement("button"); b.textContent = e.nb ? "Mettre à jour la liste…" : "Importer la liste…"; b.onclick = () => ouvrirImport({ type: "etudiants", filiere: f }); a.appendChild(b);
+      const l = document.createElement("button"); l.textContent = "Ouvrir"; l.onclick = () => window.open("https://github.com/" + cfg.compte + "/" + f.depot + "/tree/main/classes/" + f.code, "_blank"); a.appendChild(l);
+    }
+    tb.appendChild(tr);
+  }
+}
+
+// ---------- Création d'un dépôt de filière ----------
+function infosClasse(f) {
+  const d = catalogue.departements.find((x) => x.code === f.departement) || {};
+  const niveau = (/(\d)(?!.*\d)/.exec(f.code.replace(/-(EHY|ESO|BIO|EEO|GMH|BF)\d.*$/, "")) || [])[1] || "";
+  return { classe: f.code, filiere: f.libelle, niveau, semestre: "", annee: catalogue.annee, salle_principale: f.salle_principale || "", responsable: "",
+           departement: f.departement, departement_nom: d.nom || ("Département " + f.departement), departement_nom_en: d.nom_en || "" };
+}
+async function fichiersModele(creation) {
+  const res = [];
+  for (const [src, dst, binaire, creationSeule] of FICHIERS_MODELE) {
+    if (creationSeule && !creation) continue;
+    const r = await fetch(src, { cache: "no-store" });
+    if (!r.ok) throw new Error("Fichier modèle introuvable sur le site : " + src);
+    res.push(binaire ? { chemin: dst, base64: base64Octets(await r.arrayBuffer()) } : { chemin: dst, texte: await r.text() });
+  }
+  return res;
+}
+async function donneesCommunes() {
+  const res = [];
+  for (const p of ["enseignants/enseignants.csv", "salles.csv"]) {
+    const t = await lireFichier(catalogue.depot_reference, p);
+    if (t != null) res.push({ chemin: p, texte: t });
+  }
+  return res;
+}
+async function creerDepot(f) {
+  journal("Création du dépôt " + f.depot + "…");
+  try {
+    const corps = { name: f.depot, private: true, auto_init: true, description: "Présence – " + f.libelle + " (" + f.departement + ")" };
+    await apiJson(typeCompte === "Organization" ? "/orgs/" + encodeURIComponent(cfg.compte) + "/repos" : "/user/repos", { method: "POST", body: corps });
+    const fichiers = [...await fichiersModele(true), ...await donneesCommunes(),
+      { chemin: "classes/" + f.code + "/classe.json", texte: JSON.stringify(infosClasse(f), null, 2) + "\n" },
+      { chemin: "classes/" + f.code + "/etudiants.csv", texte: "id,matricule,noms_prenoms,sexe,liste,groupe_td,groupe_tp,statut\n" },
+      { chemin: "scans/.gitkeep", texte: "" }, { chemin: "fiches/.gitkeep", texte: "" }];
+    await commit(f.depot, fichiers, "Mise en place du dépôt de présence " + f.libelle);
+    journal("Dépôt " + f.depot + " créé.", "ok");
+  } catch (e) { journal(f.depot + " : " + e.message, "erreur"); }
+}
+$("btn-creer-tout").onclick = async () => {
+  const manquants = filieresDep().filter((f) => etat[f.code] && !etat[f.code].existe);
+  if (!manquants.length) return journal("Aucun dépôt manquant pour ce département.");
+  if (!confirm("Créer " + manquants.length + " dépôt(s) privé(s) pour le département " + $("f-dep").value + " ?")) return;
+  $("btn-creer-tout").disabled = true;
+  for (const f of manquants) await creerDepot(f);
+  $("btn-creer-tout").disabled = false;
+  await actualiser();
+};
+
+// ---------- Diffusion ----------
+async function depotsExistants() {
+  const res = [];
+  for (const d of [...new Set(catalogue.filieres.map((f) => f.depot))]) { const r = await api(repo(d)); if (r.ok) res.push(d); }
+  return res;
+}
+$("btn-diffuser").onclick = async () => {
+  const communs = await donneesCommunes();
+  if (!communs.length) return journal("Aucune liste d'enseignants ni de salles dans le dépôt de référence.", "erreur");
+  const cibles = (await depotsExistants()).filter((d) => d !== catalogue.depot_reference);
+  if (!confirm("Recopier " + communs.map((c) => c.chemin).join(" et ") + " dans " + cibles.length + " dépôt(s) ?")) return;
+  for (const d of cibles) {
+    try { await commit(d, communs, "Mise à jour des enseignants et des salles"); journal(d + " : à jour.", "ok"); }
+    catch (e) { journal(d + " : " + e.message, "erreur"); }
+  }
+};
+$("btn-scripts").onclick = async () => {
+  const modele = await fichiersModele();
+  const cibles = await depotsExistants();
+  if (!confirm("Remplacer les scripts et l'automatisation dans " + cibles.length + " dépôt(s) ? Les listes, scans et fiches ne sont pas modifiés.")) return;
+  for (const d of cibles) {
+    try { await commit(d, modele, "Mise à jour des scripts de présence"); journal(d + " : scripts à jour.", "ok"); }
+    catch (e) { journal(d + " : " + e.message, "erreur"); }
+  }
+};
+
+// ---------- Import d'une liste Excel ----------
+let importEnCours = null; // { type, filiere, lignes, existants, resultat }
+const COL_ETU = ["id", "matricule", "noms_prenoms", "sexe", "liste", "groupe_td", "groupe_tp", "statut"];
+function ouvrirImport(ctx) {
+  importEnCours = ctx;
+  $("imp-fichier").value = ""; $("imp-resume").innerHTML = ""; $("bloc-feuille").classList.add("cache"); $("imp-apercu").classList.add("cache"); $("imp-valider").disabled = true;
+  if (ctx.type === "etudiants") {
+    $("imp-titre").textContent = "Liste des étudiants · " + ctx.filiere.libelle;
+    $("imp-aide").innerHTML = "Le fichier doit contenir une colonne <b>Noms et prénoms</b>. Colonnes facultatives reconnues : <b>Matricule</b>, <b>Sexe</b>, " +
+      "<b>Groupe</b> ou <b>Groupe TD</b>, <b>Groupe TP</b>, <b>Statut</b> ((R) redoublant, (Cr) créditaire, (N) nouveau). Toutes les feuilles du classeur sont lues. " +
+      "Les étudiants déjà enregistrés gardent leur identifiant, et donc leur carte ; les nouveaux reçoivent un identifiant à la suite.";
+  } else {
+    $("imp-titre").textContent = "Liste des enseignants";
+    $("imp-aide").innerHTML = "Le fichier doit contenir une colonne <b>Noms et prénoms</b> (titre compris, par exemple « Dr KAGHO YMELE Laurent »). " +
+      "Les enseignants déjà enregistrés gardent leur identifiant ; les nouveaux reçoivent le numéro suivant (ENS-…). Personne n'est retiré de la liste.";
+  }
+  $("dlg-import").showModal();
+}
+$("imp-annuler").onclick = () => $("dlg-import").close();
+$("imp-feuille").onchange = () => traiterFeuilles();
+$("btn-import-ens").onclick = () => ouvrirImport({ type: "enseignants" });
+
+// Renvoie les feuilles lisibles : [{ nom, ent: [entêtes], lignes: [[...]] }]
+function lireClasseur(buf, nomFichier) {
+  if (/\.csv$/i.test(nomFichier)) {
+    const lignes = analyserCsv(new TextDecoder().decode(buf));
+    return [{ nom: nomFichier.replace(/\.csv$/i, ""), ent: Object.keys(lignes[0] || {}), lignes: lignes.map((l) => Object.values(l)) }];
+  }
+  if (typeof XLSX === "undefined") throw new Error("La bibliothèque de lecture Excel n'a pas pu être chargée (connexion Internet ?).");
+  const wb = XLSX.read(buf, { type: "array" }), feuilles = [];
+  for (const nom of wb.SheetNames) {
+    const lignes = XLSX.utils.sheet_to_json(wb.Sheets[nom], { header: 1, defval: "", raw: false });
+    const iEnt = lignes.findIndex((l) => l.some((c) => /nom/i.test(sansAccent(String(c)))));
+    if (iEnt < 0) continue;
+    feuilles.push({ nom, ent: lignes[iEnt].map((c) => String(c).trim()), lignes: lignes.slice(iEnt + 1) });
+  }
+  return feuilles;
+}
+// Répare les accents mal encodés fréquents dans les exports (« BenoÃ®t » -> « Benoît »)
+function reparer(t) {
+  if (!/[ÃÂ]/.test(t)) return t;
+  try { const r = decodeURIComponent(escape(t)); if (!/[ÃÂ]/.test(r)) return r; } catch (e) {}
+  return t;
+}
+// Statut : (R) redoublant, (Cr) créditaire, (N) nouveau ou régulier
+function normStatut(v) {
+  const x = sansAccent(v).toLowerCase().replace(/[()\s]/g, "");
+  if (!x) return "";
+  if (x.startsWith("cr") || x === "c") return "(Cr)";
+  if (x.startsWith("r")) return "(R)";
+  if (x.startsWith("n")) return "(N)";
+  return v;
+}
+function colonne(ent, regex) { return ent.findIndex((h) => regex.test(sansAccent(h))); }
+function extraire(f) {
+  const ent = f.ent;
+  // « Noms et prénoms » (ou noms_prenoms) dans une seule colonne, ou « Nom » et « Prénom(s) » séparés
+  let cNom = colonne(ent, /noms?[\s_]*(et|&)?[\s_]*pr[eé]?nom/i), cPrenom = -1;
+  if (cNom < 0) { cNom = ent.findIndex((h) => /nom/i.test(sansAccent(h)) && !/prenom/i.test(sansAccent(h))); cPrenom = colonne(ent, /prenom/i); }
+  if (cNom < 0) return [];
+  const cId = ent.findIndex((h) => /^id$/i.test(h.trim()));
+  const cMat = colonne(ent, /matricule/i), cSexe = colonne(ent, /^sexe|genre/i), cStat = colonne(ent, /statut/i);
+  const cSrc = ent.findIndex((h) => /^liste$|source|option/i.test(sansAccent(h)));
+  const cTp = colonne(ent, /groupe.*tp|tp.*groupe/i);
+  const cTd = ent.findIndex((h, k) => k !== cTp && /groupe/i.test(sansAccent(h)));
+  const val = (l, c) => (c >= 0 ? String(l[c] == null ? "" : l[c]).trim() : "");
+  const grp = (v) => v.toUpperCase().replace(/^(GROUPE|GR\.?|G)[\s_]*/, "");
+  return f.lignes.map((l) => ({
+    id: val(l, cId).toUpperCase(),
+    nom: reparer((val(l, cNom) + (cPrenom >= 0 ? " " + val(l, cPrenom) : "")).replace(/\s+/g, " ").trim()),
+    matricule: val(l, cMat), statut: normStatut(val(l, cStat)),
+    sexe: /^f/i.test(val(l, cSexe)) ? "F" : /^m|^h/i.test(val(l, cSexe)) ? "M" : "",
+    td: grp(val(l, cTd)), tp: grp(val(l, cTp)),
+    feuille: val(l, cSrc) || f.nom,
+  })).filter((x) => x.nom && /[A-Za-zÀ-ÿ]{2}/.test(x.nom) && !/^n(o|°)?m?s?\s*(et|&)?\s*pr/i.test(x.nom));
+}
+let classeur = [];
+$("imp-fichier").onchange = async () => {
+  const fichier = $("imp-fichier").files[0]; if (!fichier) return;
+  $("imp-resume").className = ""; $("imp-resume").textContent = "Lecture…"; $("imp-valider").disabled = true;
+  try {
+    classeur = lireClasseur(await fichier.arrayBuffer(), fichier.name).filter((f) => extraire(f).length);
+    if (!classeur.length) throw new Error("Aucune ligne trouvée. Vérifiez que le fichier contient une colonne « Noms et prénoms ».");
+    // Classeur de plusieurs filières : on propose la feuille qui porte le nom de la filière
+    const sel = $("imp-feuille"); sel.innerHTML = "";
+    if (classeur.length > 1) sel.add(new Option("Toutes les feuilles (" + classeur.length + ")", "*"));
+    for (const f of classeur) sel.add(new Option(f.nom + " (" + extraire(f).length + " noms)", f.nom));
+    const cible = importEnCours.type === "etudiants" ? [importEnCours.filiere.libelle, importEnCours.filiere.code] : [];
+    const correspondante = classeur.find((f) => cible.some((c) => cleNom(c) === cleNom(f.nom)));
+    sel.value = correspondante ? correspondante.nom : classeur.length > 1 ? "*" : classeur[0].nom;
+    $("bloc-feuille").classList.toggle("cache", classeur.length < 2);
+    await traiterFeuilles();
+  } catch (e) { $("imp-resume").className = "erreur"; $("imp-resume").textContent = e.message; }
+};
+async function traiterFeuilles() {
+  const choix = $("imp-feuille").value;
+  const lus = classeur.filter((f) => choix === "*" || f.nom === choix).flatMap(extraire);
+  try { await preparerImport(lus); } catch (e) { $("imp-resume").className = "erreur"; $("imp-resume").textContent = e.message; }
+}
+async function preparerImport(lus) {
+  const ctx = importEnCours, vus = new Map(), doublons = [];
+  for (const x of lus) { const k = cleNom(x.nom); if (vus.has(k)) doublons.push(x.nom); else vus.set(k, x); }
+  const uniques = [...vus.values()];
+  let existants, depot, chemin;
+  if (ctx.type === "etudiants") { depot = ctx.filiere.depot; chemin = "classes/" + ctx.filiere.code + "/etudiants.csv"; }
+  else { depot = catalogue.depot_reference; chemin = "enseignants/enseignants.csv"; }
+  const t = await lireFichier(depot, chemin);
+  existants = t ? analyserCsv(t).filter((e) => e.id) : [];
+  const parNom = new Map(existants.map((e) => [cleNom(e.noms_prenoms), e]));
+  let prefixe, largeur;
+  if (ctx.type === "etudiants") { prefixe = ctx.filiere.prefixe_id + "-" + (catalogue.annee_id || "26") + "-"; largeur = 3; }
+  else { prefixe = "ENS-"; largeur = 3; }
+  // Numéros réservés aux cartes de réserve : 901 à 999, plus la plage indiquée dans classe.json ("reserve": [début, fin])
+  const plages = [[901, 999]];
+  if (ctx.type === "etudiants") {
+    try { const cj = JSON.parse(await lireFichier(depot, "classes/" + ctx.filiere.code + "/classe.json") || "{}"); if (Array.isArray(cj.reserve)) plages.push(cj.reserve.map(Number)); } catch (e) {}
+  }
+  const enReserve = (n) => plages.some(([a, b]) => n >= a && n <= b);
+  let dernier = 0;
+  for (const e of existants) { const m = /(\d+)$/.exec(e.id); if (m && e.id.startsWith(prefixe) && !enReserve(+m[1])) dernier = Math.max(dernier, +m[1]); }
+  const pris = new Set(existants.map((e) => e.id.toUpperCase()));
+  // Un identifiant fourni par le fichier (colonne « id ») est conservé s'il a le bon préfixe et n'est pas déjà pris
+  for (const x of uniques) { const m = /(\d+)$/.exec(x.id || ""); if (m && x.id.startsWith(prefixe) && !pris.has(x.id) && !enReserve(+m[1])) dernier = Math.max(dernier, +m[1]); }
+  const suivant = () => { do { dernier++; } while (enReserve(dernier) || pris.has(prefixe + String(dernier).padStart(largeur, "0"))); return dernier; };
+  let nouveaux = 0, misAJour = 0;
+  const resultat = existants.map((e) => ({ ...e }));
+  const index = new Map(resultat.map((e) => [cleNom(e.noms_prenoms), e]));
+  for (const x of uniques) {
+    const e = index.get(cleNom(x.nom));
+    if (e) {
+      if (ctx.type === "etudiants") {
+        let modif = false;
+        for (const [champ, val] of [["matricule", x.matricule], ["sexe", x.sexe], ["statut", x.statut], ["groupe_td", x.td], ["groupe_tp", x.tp]])
+          if (val && e[champ] !== val) { e[champ] = val; modif = true; }
+        if (modif) misAJour++;
+      }
+    } else {
+      nouveaux++;
+      const id = x.id && x.id.startsWith(prefixe) && /\d+$/.test(x.id) && !pris.has(x.id) ? x.id : prefixe + String(suivant()).padStart(largeur, "0");
+      pris.add(id);
+      resultat.push(ctx.type === "etudiants"
+        ? { id, matricule: x.matricule, noms_prenoms: x.nom, sexe: x.sexe, liste: x.feuille, statut: x.statut, groupe_td: x.td, groupe_tp: x.tp }
+        : { id, noms_prenoms: x.nom, statut: "" });
+    }
+  }
+  const absents = existants.filter((e) => !vus.has(cleNom(e.noms_prenoms))).length;
+  ctx.resultat = resultat; ctx.depot = depot; ctx.chemin = chemin;
+  const r = $("imp-resume"); r.className = "";
+  r.innerHTML = "";
+  const p = (txt) => { const d = document.createElement("p"); d.className = "aide"; d.textContent = txt; r.appendChild(d); };
+  p(uniques.length + " nom(s) lus dans le fichier. " + nouveaux + " nouveau(x), " + (uniques.length - nouveaux) + " déjà enregistré(s)" +
+    (misAJour ? " dont " + misAJour + " mis à jour (matricule, groupe ou statut)" : "") + ".");
+  if (doublons.length) p("Doublons ignorés dans le fichier : " + doublons.join(", ") + ".");
+  if (absents) p(absents + " personne(s) déjà enregistrée(s) ne figure(nt) pas dans ce fichier : elles sont conservées.");
+  p("Total après import : " + resultat.length + ".");
+  const ap = $("imp-apercu"); ap.innerHTML = ""; ap.classList.remove("cache");
+  const table = document.createElement("table"), cols = ctx.type === "etudiants" ? ["id", "noms_prenoms", "matricule", "groupe_td", "groupe_tp", "statut"] : ["id", "noms_prenoms"];
+  const tr0 = document.createElement("tr"); for (const c of cols) { const th = document.createElement("th"); th.textContent = c; tr0.appendChild(th); } table.appendChild(tr0);
+  for (const e of resultat.slice(-12)) { const tr = document.createElement("tr"); for (const c of cols) { const td = document.createElement("td"); td.textContent = e[c] || ""; tr.appendChild(td); } table.appendChild(tr); }
+  ap.appendChild(table);
+  $("imp-valider").disabled = !(nouveaux || misAJour);
+  if (!(nouveaux || misAJour)) p("Rien à enregistrer : la liste du dépôt est déjà à jour.");
+}
+$("imp-valider").onclick = async () => {
+  const ctx = importEnCours; $("imp-valider").disabled = true;
+  try {
+    const colonnes = ctx.type === "etudiants" ? COL_ETU : ["id", "noms_prenoms", "statut"];
+    await commit(ctx.depot, [{ chemin: ctx.chemin, texte: versCsv(colonnes, ctx.resultat) }],
+      ctx.type === "etudiants" ? "Liste des étudiants " + ctx.filiere.libelle + " (" + ctx.resultat.length + ")" : "Liste des enseignants (" + ctx.resultat.length + ")");
+    journal((ctx.type === "etudiants" ? ctx.filiere.libelle : "Enseignants") + " : liste enregistrée (" + ctx.resultat.length + "). Les cartes QR seront prêtes dans une à deux minutes.", "ok");
+    $("dlg-import").close();
+    if (ctx.type === "etudiants") await actualiser();
+    else journal("Pensez à diffuser la nouvelle liste vers toutes les filières.");
+  } catch (e) { $("imp-resume").className = "erreur"; $("imp-resume").textContent = e.message; $("imp-valider").disabled = false; }
+};
+</script>
+</body>
+</html>
