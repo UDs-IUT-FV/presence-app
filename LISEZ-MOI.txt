@@ -1,0 +1,13 @@
+NETTOYAGE — application de présence IUT-FV
+
+Fichiers modifiés :
+- index.html : remplace les valeurs par défaut « presence-donnees » par « presence-dut-gc1 ».
+- admin.html : met à jour le nom de référence affiché par défaut.
+- sw.js : incrémente le cache de presence-v5 vers presence-v6 pour forcer le rechargement des ressources.
+
+IMPORTANT :
+Le fichier filieres.json n'était pas inclus dans les fichiers reçus. L'administration lit le dépôt de référence depuis catalogue.depot_reference et les dépôts de filière depuis catalogue.filieres[].depot.
+Il faut donc aussi vérifier/modifier filieres.json dans le dépôt presence-app :
+- depot_reference doit valoir « presence-dut-gc1 » si ce dépôt est bien le dépôt central contenant enseignants/enseignants.csv et salles.csv.
+- Ne remplacez pas les champs filieres[].depot par « presence-dut-gc1 » sauf si vous souhaitez réellement que toutes les filières utilisent ce même dépôt.
+Après publication, fermer/réouvrir l'application ou recharger la page. Les anciens téléphones peuvent conserver des valeurs en localStorage ; vérifiez leur configuration et les dépôts indiqués dans infoClasse.

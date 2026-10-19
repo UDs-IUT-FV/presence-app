@@ -150,7 +150,7 @@ let seance = null;                            // séance en cours de scan
 
 // ---------- GitHub ----------
 async function gh(chemin, options = {}, depot) {
-  const url = "https://api.github.com/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(depot || cfg.depot || "presence-donnees") +
+  const url = "https://api.github.com/repos/" + encodeURIComponent(cfg.compte) + "/" + encodeURIComponent(depot || cfg.depot || "presence-dut-gc1") +
     (chemin == null ? "" : "/contents/" + chemin.split("/").map(encodeURIComponent).join("/"));
   const rep = await fetch(url, {
     method: options.method || "GET",
@@ -242,7 +242,7 @@ async function chargerClasses() {
     ecrire("presence.salles", salles);
   }
 }
-const depotDe = (s) => s.depot || (infoClasse[s.classe] || {}).depot || cfg.depot || "presence-donnees";
+const depotDe = (s) => s.depot || (infoClasse[s.classe] || {}).depot || cfg.depot || "presence-dut-gc1";
 const libelleClasse = (c) => (infoClasse[c] || {}).libelle || c;
 
 // ---------- Groupes et salles ----------
@@ -641,7 +641,7 @@ window.addEventListener("online", () => { if ($("ecran-accueil").classList.conta
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 // Migration : anciens téléphones configurés avec un seul dépôt, sans catalogue
 if (cfg && Object.keys(classes).length && !Object.keys(infoClasse).length) {
-  for (const c of Object.keys(classes)) infoClasse[c] = { depot: cfg.depot || "presence-donnees", departement: "", libelle: c, salle_principale: "" };
+  for (const c of Object.keys(classes)) infoClasse[c] = { depot: cfg.depot || "presence-dut-gc1", departement: "", libelle: c, salle_principale: "" };
 }
 if (cfg && Object.keys(classes).length) ouvrirAccueil(); else ouvrirReglages();
 </script>
