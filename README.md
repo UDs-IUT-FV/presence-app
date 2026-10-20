@@ -8,7 +8,7 @@ Ce dépôt **public** contient uniquement les pages du système, aucune donnée 
 | Administration | `…/presence-app/admin.html` | Département ou direction : création des dépôts, import des listes, diffusion des mises à jour |
 | Statistiques | `…/presence-app/statistiques.html` | Chefs de département, direction : taux de présence, étudiants à suivre, exports Excel |
 
-Les données de chaque filière sont dans un dépôt **privé** distinct (`presence-<filière>`, et `presence-donnees` pour DUT GC1). La liste des départements et des filières est dans `filieres.json`.
+Les données de chaque filière sont dans un dépôt **privé** distinct (`presence-<filière>`, y compris `presence-dut-gc1`, qui sert aussi de dépôt de référence pour les enseignants et les salles). La liste des départements et des filières est dans `filieres.json`.
 
 ## Les trois sortes de jetons
 

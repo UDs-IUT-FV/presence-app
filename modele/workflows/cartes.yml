@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: main   # dernier état du dépôt, et non le commit qui a déclenché l'exécution
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -38,5 +40,11 @@ jobs:
           git add classes enseignants
           git diff --cached --quiet && exit 0
           git commit -m "Mise à jour des cartes QR"
-          git pull --rebase
-          git push
+          # Les fichiers générés sont recalculés à chaque exécution : en cas de conflit avec une autre
+          # exécution, la version qui vient d'être produite l'emporte.
+          for essai in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep $((essai * 10))
+          done
+          exit 1
