@@ -111,6 +111,12 @@
     <button class="second" id="btn-maj-listes">Mettre à jour les filières et les listes</button>
     <div id="msg-envoi"></div>
   </div>
+  <div class="bloc">
+    <h2>Séances déjà enregistrées sur GitHub</h2>
+    <p class="aide" id="gh-sous" style="margin-top:0">Séances de la filière choisie, envoyées par tous les téléphones (7 derniers jours de cours).</p>
+    <div id="liste-github"></div>
+    <button class="second" id="btn-github">Actualiser</button>
+  </div>
 </section>
 
 <!-- Scan -->
@@ -167,7 +173,7 @@ async function gh(chemin, options = {}, depot) {
   return rep;
 }
 function expliquer(rep) {
-  if (rep.status === 401) return "Jeton refusé (401) : il est erroné, expiré ou révoqué.";
+  if (rep.status === 401) return "Jeton refusé (401) : il est erroné, expiré ou révoqué." + (rep.url ? " (" + decodeURIComponent(rep.url.split("/repos/")[1] || "").split("/contents")[0] + ")" : "");
   if (rep.status === 403) return "Accès refusé (403) : le jeton n'a pas le droit « Contents : Read and write » sur ce dépôt.";
   if (rep.status === 404) return "Introuvable (404) : vérifiez le nom du compte, et que le jeton donne accès au dépôt de cette filière.";
   return "Erreur GitHub " + rep.status + ".";
@@ -244,7 +250,9 @@ async function chargerClasses() {
     ecrire("presence.salles", salles);
   }
 }
-const depotDe = (s) => s.depot || (infoClasse[s.classe] || {}).depot || cfg.depot || "presence-dut-gc1";
+// Le dépôt actuel de la filière (catalogue) prime sur celui mémorisé dans la séance : un dépôt renommé reste ainsi
+// joignable sans passer par la redirection de GitHub, pendant laquelle Safari n'envoie pas le jeton.
+const depotDe = (s) => (infoClasse[s.classe] || {}).depot || s.depot || cfg.depot || "presence-dut-gc1";
 const libelleClasse = (c) => (infoClasse[c] || {}).libelle || c;
 
 // ---------- Groupes et salles ----------
@@ -348,6 +356,8 @@ $("btn-enregistrer").onclick = async () => {
     configurationValidee = true;
     ecrire("presence.configurationValidee", true);
     ouvrirAccueil();
+    // Les séances restées en attente partent dès que la configuration est validée
+    if (seances.some((x) => !x.envoye)) envoyerEnAttente("msg-envoi").then(() => { dessinerSeances(); chargerGithub(); });
   } catch (e) {
     cfg = ancien;
     message("msg-reglages", e.message === "Failed to fetch" ? "Pas de connexion Internet." : e.message, "erreur");
@@ -390,6 +400,57 @@ function ouvrirAccueil() {
   message("msg-accueil", ""); message("msg-envoi", "");
   dessinerSeances();
   afficher("accueil");
+  chargerGithub();
+}
+// ---------- Séances déjà présentes sur GitHub (tous téléphones confondus) ----------
+let chargementGithub = 0;
+async function chargerGithub() {
+  const classe = $("s-classe").value, zone = $("liste-github"), jeton = ++chargementGithub;
+  if (!classe || !cfg) return;
+  $("gh-sous").textContent = "Séances de " + libelleClasse(classe) + ", envoyées par tous les téléphones (7 derniers jours de cours).";
+  zone.innerHTML = '<p class="aide">Chargement…</p>';
+  try {
+    const depot = depotDe({ classe });
+    const r = await gh("scans/" + classe, {}, depot);
+    if (r.status === 404) { zone.innerHTML = '<p class="aide">Aucune séance envoyée pour cette filière.</p>'; return; }
+    if (!r.ok) throw new Error(expliquer(r));
+    const jours = (await r.json()).filter((x) => x.type === "dir" && /^\d{4}-\d{2}-\d{2}$/.test(x.name)).map((x) => x.name).sort().reverse().slice(0, 7);
+    const fichiers = (await parLots(jours, 4, async (j) => {
+      const rr = await gh("scans/" + classe + "/" + j, {}, depot);
+      return rr.ok ? (await rr.json()).filter((x) => x.type === "file" && /\.csv$/i.test(x.name)).map((x) => ({ jour: j, nom: x.name })) : [];
+    })).flat();
+    const lignes = await parLots(fichiers, 6, async (f) => {
+      const rr = await gh("scans/" + classe + "/" + f.jour + "/" + f.nom, { brut: true }, depot);
+      const l = rr.ok ? analyserCsv(await rr.text()) : [];
+      const m = /^C(\d)_(?:(CM|TD|TP)(?:-([A-Za-z0-9]+))?_)?/.exec(f.nom) || [];
+      const l0 = l[0] || {};
+      const profs = l.filter((x) => x.mode === "enseignant").map((x) => (enseignants.find((e) => e.id === (x.id || "").toUpperCase()) || { nom: x.id }).nom);
+      return { jour: f.jour, creneau: m[1] || l0.creneau || "?", nature: l0.nature || m[2] || "CM", groupe: l0.groupe || m[3] || "", ue: l0.ue || "", salle: l0.salle || "",
+               scanneur: l0.scanneur || "", presents: l.filter((x) => x.mode !== "enseignant").length, profs };
+    });
+    if (jeton !== chargementGithub) return; // une autre filière a été choisie entre-temps
+    zone.innerHTML = "";
+    if (!lignes.length) { zone.innerHTML = '<p class="aide">Aucune séance envoyée pour cette filière.</p>'; return; }
+    lignes.sort((a, b) => (b.jour + b.creneau).localeCompare(a.jour + a.creneau));
+    for (const x of lignes) {
+      const div = document.createElement("div"); div.className = "seance";
+      const infos = document.createElement("div"); infos.className = "infos";
+      const t = document.createElement("div"); t.className = "titre";
+      t.textContent = x.jour.split("-").reverse().join("/") + " · créneau " + x.creneau + " · " + libelleSeance({ nature: x.nature, groupe: x.groupe });
+      const d = document.createElement("div"); d.className = "detail";
+      d.textContent = x.presents + " présent(s)" + (x.ue ? " · " + x.ue : "") + (x.salle ? " · " + x.salle : "") +
+        " · " + (x.profs.length ? "émargé : " + x.profs.join(", ") : "enseignant non émargé") + (x.scanneur ? " · par " + x.scanneur : "");
+      infos.append(t, d);
+      const etat = document.createElement("span"); etat.className = "etat envoye"; etat.textContent = "Sur GitHub";
+      div.append(infos, etat); zone.appendChild(div);
+    }
+  } catch (e) {
+    if (jeton !== chargementGithub) return;
+    zone.innerHTML = "";
+    const p = document.createElement("p"); p.className = "erreur";
+    p.textContent = e.message === "Failed to fetch" ? "Pas de connexion Internet : impossible d'afficher les séances de GitHub." : e.message;
+    zone.appendChild(p);
+  }
 }
 function dessinerSeances() {
   const zone = $("liste-seances"); zone.innerHTML = "";
@@ -439,8 +500,9 @@ $("btn-demarrer").onclick = () => {
   }
   demarrerScan(s);
 };
-$("s-dep").onchange = () => { remplirClasses(); remplirGroupes(); remplirSalles(true); };
-$("s-classe").onchange = () => { remplirGroupes(); remplirSalles(true); };
+$("s-dep").onchange = () => { remplirClasses(); remplirGroupes(); remplirSalles(true); chargerGithub(); };
+$("s-classe").onchange = () => { remplirGroupes(); remplirSalles(true); chargerGithub(); };
+$("btn-github").onclick = () => chargerGithub();
 $("s-nature").onchange = () => { remplirGroupes(); remplirSalles(true); };
 $("s-salle-choix").onchange = majChampSalle;
 $("btn-maj-listes").onclick = async () => {
@@ -490,7 +552,7 @@ async function envoyerEnAttente(idMessage) {
     return false;
   }
 }
-$("btn-tout-envoyer").onclick = async () => { await envoyerEnAttente("msg-envoi"); dessinerSeances(); };
+$("btn-tout-envoyer").onclick = async () => { await envoyerEnAttente("msg-envoi"); dessinerSeances(); chargerGithub(); };
 
 // ---------- Scan ----------
 let flux = null, boucle = null, dernierCode = "", dernierInstant = 0, audio = null, verrou = null;
